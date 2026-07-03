@@ -1,0 +1,22 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: INFO
+    com.printhub: INFO
+    org.hibernate.SQL: WARN
+
+jwt:
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+
+server:
+  error:
+    include-message: never
+    include-binding-errors: never

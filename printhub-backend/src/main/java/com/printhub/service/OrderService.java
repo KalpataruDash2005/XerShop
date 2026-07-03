@@ -1,0 +1,421 @@
+package com.printhub.service;
+
+import com.printhub.dto.order.OrderDTOs.*;
+import com.printhub.entity.*;
+import com.printhub.exception.BadRequestException;
+import com.printhub.exception.ForbiddenException;
+import com.printhub.exception.ResourceNotFoundException;
+import com.printhub.mapper.OrderMapper;
+import com.printhub.repository.*;
+import com.printhub.util.OrderNumberGenerator;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final OrderTimelineRepository timelineRepository;
+    private final UserRepository userRepository;
+    private final ShopRepository shopRepository;
+    private final AddressRepository addressRepository;
+    private final CouponRepository couponRepository;
+    private final WalletRepository walletRepository;
+    private final PricingRuleRepository pricingRuleRepository;
+    private final PlatformSettingsRepository settingsRepository;
+    private final OrderMapper orderMapper;
+    private final OrderNumberGenerator orderNumberGenerator;
+
+    public PriceEstimateResponse calculatePriceEstimate(PriceEstimateRequest request) {
+        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(request.getShopId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shop", request.getShopId()));
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        List<ItemPriceBreakdown> breakdowns = new java.util.ArrayList<>();
+
+        for (OrderItemSpec item : request.getItems()) {
+            ItemPriceBreakdown breakdown = calculateItemPrice(shop, item);
+            breakdowns.add(breakdown);
+            subtotal = subtotal.add(breakdown.getLineTotal());
+        }
+
+        BigDecimal discount = BigDecimal.ZERO;
+        BigDecimal walletDiscount = BigDecimal.ZERO;
+        String couponApplied = null;
+
+        if (request.getCouponCode() != null) {
+            Coupon coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
+            if (coupon != null && coupon.getIsActive()) {
+                discount = calculateCouponDiscount(coupon, subtotal);
+                couponApplied = coupon.getCode();
+            }
+        }
+
+        if (request.getWalletAmountUsed() != null && request.getWalletAmountUsed().compareTo(BigDecimal.ZERO) > 0) {
+            walletDiscount = request.getWalletAmountUsed();
+        }
+
+        BigDecimal taxRate = getTaxRate();
+        BigDecimal taxableAmount = subtotal.subtract(discount);
+        BigDecimal tax = taxableAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+
+        BigDecimal deliveryCharge = BigDecimal.ZERO;
+        // TODO: Calculate delivery charge based on distance
+
+        BigDecimal totalAmount = subtotal.subtract(discount).add(tax).add(deliveryCharge).subtract(walletDiscount);
+        if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
+            totalAmount = BigDecimal.ZERO;
+        }
+
+        return PriceEstimateResponse.builder()
+                .subtotal(subtotal)
+                .discount(discount)
+                .tax(tax)
+                .deliveryCharge(deliveryCharge)
+                .walletDiscount(walletDiscount)
+                .totalAmount(totalAmount)
+                .couponApplied(couponApplied)
+                .itemBreakdowns(breakdowns)
+                .build();
+    }
+
+    private ItemPriceBreakdown calculateItemPrice(Shop shop, OrderItemSpec item) {
+        List<PricingRule> rules = pricingRuleRepository.findMatchingRules(
+                shop.getId(),
+                item.getPaperSize(),
+                item.getGsm(),
+                item.getColorMode() != null ? ColorMode.valueOf(item.getColorMode()) : null,
+                item.getSides() != null ? PrintSide.valueOf(item.getSides()) : null
+        );
+
+        PricingRule rule = rules.isEmpty() ? getDefaultPricingRule(shop) : rules.get(0);
+
+        int totalPages = item.getPageCount() * item.getCopies();
+        BigDecimal printingCost = rule.getPricePerPage() != null
+                ? rule.getPricePerPage().multiply(BigDecimal.valueOf(totalPages))
+                : rule.getBasePrice();
+
+        BigDecimal bindingCost = BigDecimal.ZERO;
+        if (item.getBinding() != null && !item.getBinding().equals("NONE") && rule.getBindingPrice() != null) {
+            bindingCost = rule.getBindingPrice();
+        }
+
+        BigDecimal laminationCost = BigDecimal.ZERO;
+        if (Boolean.TRUE.equals(item.getLamination()) && rule.getLaminationPrice() != null) {
+            laminationCost = rule.getLaminationPrice().multiply(BigDecimal.valueOf(item.getPageCount()));
+        }
+
+        BigDecimal lineTotal = printingCost.add(bindingCost).add(laminationCost);
+
+        return ItemPriceBreakdown.builder()
+                .pageCount(item.getPageCount())
+                .copies(item.getCopies())
+                .colorMode(item.getColorMode())
+                .paperSize(item.getPaperSize())
+                .basePrice(rule.getBasePrice())
+                .printingCost(printingCost)
+                .bindingCost(bindingCost)
+                .laminationCost(laminationCost)
+                .lineTotal(lineTotal)
+                .build();
+    }
+
+    private PricingRule getDefaultPricingRule(Shop shop) {
+        return PricingRule.builder()
+                .shop(shop)
+                .basePrice(BigDecimal.valueOf(5))
+                .pricePerPage(BigDecimal.valueOf(2))
+                .bindingPrice(BigDecimal.valueOf(30))
+                .laminationPrice(BigDecimal.valueOf(5))
+                .build();
+    }
+
+    private BigDecimal calculateCouponDiscount(Coupon coupon, BigDecimal amount) {
+        if (amount.compareTo(coupon.getMinOrderAmount() != null ? coupon.getMinOrderAmount() : BigDecimal.ZERO) < 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal discount;
+        if (coupon.getType() == CouponType.PERCENTAGE) {
+            discount = amount.multiply(coupon.getValue()).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        } else {
+            discount = coupon.getValue();
+        }
+
+        if (coupon.getMaxDiscountAmount() != null && discount.compareTo(coupon.getMaxDiscountAmount()) > 0) {
+            discount = coupon.getMaxDiscountAmount();
+        }
+
+        return discount;
+    }
+
+    private BigDecimal getTaxRate() {
+        return settingsRepository.findBySettingKey("gst_percent")
+                .map(s -> new BigDecimal(s.getSettingValue()))
+                .orElse(BigDecimal.valueOf(18));
+    }
+
+    @Transactional
+    public OrderDTO createOrder(Long userId, CreateOrderRequest request) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(request.getShopId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shop", request.getShopId()));
+
+        if (shop.getStatus() != ShopStatus.APPROVED) {
+            throw new BadRequestException("Shop is not accepting orders");
+        }
+
+        if (!shop.getIsAcceptingOrders()) {
+            throw new BadRequestException("Shop is temporarily not accepting orders");
+        }
+
+        Address deliveryAddress = null;
+        if (request.getDeliveryType().equals("DELIVERY")) {
+            if (request.getAddressId() == null) {
+                throw new BadRequestException("Delivery address is required for delivery orders");
+            }
+            deliveryAddress = addressRepository.findByIdAndUserIdAndDeletedAtIsNull(request.getAddressId(), userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Address", request.getAddressId()));
+        }
+
+        Order order = Order.builder()
+                .orderNumber(orderNumberGenerator.generate())
+                .user(user)
+                .shop(shop)
+                .status(OrderStatus.PLACED)
+                .deliveryType(DeliveryType.valueOf(request.getDeliveryType()))
+                .deliveryAddress(deliveryAddress)
+                .notes(request.getNotes())
+                .build();
+
+        // Calculate pricing
+        List<OrderItem> items = request.getItems().stream()
+                .map(itemRequest -> {
+                    OrderItem item = orderMapper.toEntity(itemRequest);
+                    item.setOrder(order);
+                    // Calculate line total
+                    ItemPriceBreakdown breakdown = calculateItemPrice(shop, new OrderItemSpec(
+                            item.getPageCount(), item.getCopies(), item.getColorMode().name(),
+                            item.getSides().name(), item.getPaperSize(), item.getGsm(),
+                            item.getBinding() != null ? item.getBinding().name() : null, item.getLamination()
+                    ));
+                    item.setLineTotal(breakdown.getLineTotal());
+                    return item;
+                })
+                .collect(Collectors.toList());
+
+        order.setItems(items);
+
+        // Calculate totals
+        BigDecimal subtotal = items.stream()
+                .map(OrderItem::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal discount = BigDecimal.ZERO;
+        if (request.getCouponCode() != null) {
+            Coupon coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
+            if (coupon != null) {
+                discount = calculateCouponDiscount(coupon, subtotal);
+                order.setCoupon(coupon);
+            }
+        }
+
+        BigDecimal taxRate = getTaxRate();
+        BigDecimal tax = subtotal.subtract(discount).multiply(taxRate).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+
+        BigDecimal walletUsed = request.getWalletAmountUsed() != null ? request.getWalletAmountUsed() : BigDecimal.ZERO;
+        order.setWalletAmountUsed(walletUsed);
+
+        BigDecimal total = subtotal.subtract(discount).add(tax).subtract(walletUsed);
+        if (total.compareTo(BigDecimal.ZERO) < 0) {
+            total = BigDecimal.ZERO;
+            order.setWalletAmountUsed(subtotal.subtract(discount).add(tax));
+        }
+
+        order.setSubtotal(subtotal);
+        order.setDiscount(discount);
+        order.setTax(tax);
+        order.setTotalAmount(total);
+
+        order = orderRepository.save(order);
+
+        // Save items
+        List<OrderItem> savedItems = orderItemRepository.saveAll(items);
+        order.setItems(savedItems);
+
+        // Add timeline entry
+        addTimelineEntry(order, OrderStatus.PLACED, "Order placed", user);
+
+        return orderMapper.toDTO(order);
+    }
+
+    public OrderDTO getOrderById(Long userId, Long orderId) {
+        Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        if (!order.getUser().getId().equals(userId) && !order.getShop().getOwner().getId().equals(userId)) {
+            throw new ForbiddenException("Access denied");
+        }
+
+        return enrichOrderDTO(order);
+    }
+
+    public OrderDTO getOrderByNumber(String orderNumber) {
+        Order order = orderRepository.findByOrderNumberAndDeletedAtIsNull(orderNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "order number", orderNumber));
+        return enrichOrderDTO(order);
+    }
+
+    public Page<OrderDTO> getUserOrders(Long userId, Pageable pageable) {
+        return orderRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, pageable)
+                .map(this::enrichOrderDTO);
+    }
+
+    public Page<OrderDTO> getShopOrders(Long shopId, Long requesterId, Pageable pageable) {
+        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(shopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shop", shopId));
+
+        if (!shop.getOwner().getId().equals(requesterId)) {
+            throw new ForbiddenException("Access denied");
+        }
+
+        return orderRepository.findByShopIdAndDeletedAtIsNullOrderByCreatedAtDesc(shopId, pageable)
+                .map(this::enrichOrderDTO);
+    }
+
+    @Transactional
+    public OrderDTO updateOrderStatus(Long orderId, Long requesterId, UpdateOrderStatusRequest request) {
+        Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        User requester = userRepository.findByIdAndDeletedAtIsNull(requesterId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", requesterId));
+
+        if (!order.getShop().getOwner().getId().equals(requesterId)) {
+            throw new ForbiddenException("Only shop owner can update order status");
+        }
+
+        OrderStatus newStatus = OrderStatus.valueOf(request.getStatus());
+        validateStatusTransition(order.getStatus(), newStatus, request);
+
+        order.setStatus(newStatus);
+
+        if (newStatus == OrderStatus.REJECTED && request.getRejectionReason() != null) {
+            order.setRejectionReason(request.getRejectionReason());
+        }
+
+        if (newStatus == OrderStatus.COMPLETED) {
+            order.setCompletedAt(LocalDateTime.now());
+        }
+
+        order = orderRepository.save(order);
+        addTimelineEntry(order, newStatus, request.getNotes(), requester);
+
+        return enrichOrderDTO(order);
+    }
+
+    private void validateStatusTransition(OrderStatus current, OrderStatus next, UpdateOrderStatusRequest request) {
+        if (current == OrderStatus.COMPLETED || current == OrderStatus.CANCELLED || current == OrderStatus.REJECTED) {
+            throw new BadRequestException("Cannot update status of a " + current.name().toLowerCase() + " order");
+        }
+
+        if (next == OrderStatus.REJECTED && (request.getRejectionReason() == null || request.getRejectionReason().isBlank())) {
+            throw new BadRequestException("Rejection reason is required");
+        }
+
+        // Valid transitions based on business flow
+        boolean validTransition = switch (current) {
+            case PLACED -> next == OrderStatus.ACCEPTED || next == OrderStatus.REJECTED || next == OrderStatus.CANCELLED;
+            case ACCEPTED -> next == OrderStatus.PRINTING || next == OrderStatus.REJECTED || next == OrderStatus.CANCELLED;
+            case PRINTING -> next == OrderStatus.READY;
+            case READY -> next == OrderStatus.OUT_FOR_DELIVERY || next == OrderStatus.COMPLETED;
+            case OUT_FOR_DELIVERY -> next == OrderStatus.COMPLETED;
+            default -> false;
+        };
+
+        if (!validTransition) {
+            throw new BadRequestException("Invalid status transition from " + current + " to " + next);
+        }
+    }
+
+    private void addTimelineEntry(Order order, OrderStatus status, String notes, User changedBy) {
+        OrderTimeline timeline = OrderTimeline.builder()
+                .order(order)
+                .status(status)
+                .notes(notes)
+                .changedBy(changedBy)
+                .build();
+        timelineRepository.save(timeline);
+    }
+
+    private OrderDTO enrichOrderDTO(Order order) {
+        OrderDTO dto = orderMapper.toDTO(order);
+
+        List<OrderItemDTO> itemDTOs = orderItemRepository.findByOrderId(order.getId())
+                .stream()
+                .map(orderMapper::toItemDTO)
+                .collect(Collectors.toList());
+        dto.setItems(itemDTOs);
+
+        List<TimelineDTO> timelineDTOs = timelineRepository.findByOrderIdOrderByCreatedAtAsc(order.getId())
+                .stream()
+                .map(orderMapper::toTimelineDTO)
+                .collect(Collectors.toList());
+        dto.setTimeline(timelineDTOs);
+
+        return dto;
+    }
+
+    @Transactional
+    public OrderDTO reorder(Long userId, Long orderId) {
+        Order original = orderRepository.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        if (!original.getUser().getId().equals(userId)) {
+            throw new ForbiddenException("Access denied");
+        }
+
+        CreateOrderRequest request = CreateOrderRequest.builder()
+                .shopId(original.getShop().getId())
+                .deliveryType(original.getDeliveryType().name())
+                .addressId(original.getDeliveryAddress() != null ? original.getDeliveryAddress().getId() : null)
+                .notes(original.getNotes())
+                .items(original.getItems().stream()
+                        .map(item -> CreateOrderItemRequest.builder()
+                                .fileUrl(item.getFileUrl())
+                                .fileName(item.getFileName())
+                                .fileType(item.getFileType())
+                                .pageCount(item.getPageCount())
+                                .copies(item.getCopies())
+                                .colorMode(item.getColorMode().name())
+                                .sides(item.getSides().name())
+                                .paperSize(item.getPaperSize())
+                                .gsm(item.getGsm())
+                                .binding(item.getBinding() != null ? item.getBinding().name() : null)
+                                .lamination(item.getLamination())
+                                .pageRange(item.getPageRange())
+                                .build())
+                        .collect(Collectors.toList()))
+                .build();
+
+        recreateOrderForReorder(request, original);
+        return createOrder(userId, request);
+    }
+
+    private void recreateOrderForReorder(CreateOrderRequest request, Order original) {
+        // For reorder, we use the same files from the original order
+        // In production, we might want to copy/validate files still exist
+    }
+}
