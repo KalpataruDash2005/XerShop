@@ -10,10 +10,12 @@ import com.printhub.exception.UnauthorizedException;
 import com.printhub.repository.RefreshTokenRepository;
 import com.printhub.repository.UserRepository;
 import com.printhub.security.JwtService;
+import com.printhub.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +38,7 @@ public class AuthService {
         if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail())) {
             throw new ConflictException("Email already registered");
         }
-        if (userRepository.existsByPhone(request.getPhone())) {
+        if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
             throw new ConflictException("Phone number already registered");
         }
 
@@ -46,7 +48,7 @@ public class AuthService {
                 .phone(request.getPhone())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(UserRole.CUSTOMER)
-                .isVerified(false)
+                .isVerified(true)
                 .build();
 
         user = userRepository.save(user);
@@ -72,9 +74,21 @@ public class AuthService {
                 )
         );
 
-        User user = getUserFromAuthentication(authentication);
+        String identifier = authentication.getName();
+        User user = null;
+        try {
+            Long id = Long.parseLong(identifier);
+            user = userRepository.findByIdAndDeletedAtIsNull(id).orElse(null);
+        } catch (NumberFormatException e) {
+            // Not a user ID
+        }
 
-        String accessToken = jwtService.generateAccessToken(authentication);
+        if (user == null) {
+            user = userRepository.findByEmailOrPhone(identifier, identifier)
+                    .orElseThrow(() -> new UnauthorizedException("User not found"));
+        }
+
+        String accessToken = jwtService.generateAccessToken(new UserPrincipal(user));
         String refreshToken = generateRefreshToken(user);
 
         return LoginResponse.builder()
@@ -135,12 +149,6 @@ public class AuthService {
         return token;
     }
 
-    private User getUserFromAuthentication(Authentication authentication) {
-        String identifier = authentication.getName();
-        return userRepository.findByEmailOrPhone(identifier, identifier)
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
-    }
-
     private UserSummary toUserSummary(User user) {
         return UserSummary.builder()
                 .id(user.getId())
@@ -151,49 +159,4 @@ public class AuthService {
                 .build();
     }
 
-    // Inner class for UserPrincipal
-    private static class UserPrincipal implements org.springframework.security.core.userdetails.UserDetails {
-        private final User user;
-
-        UserPrincipal(User user) {
-            this.user = user;
-        }
-
-        @Override
-        public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
-            return java.util.Collections.singletonList(
-                    new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + user.getRole().name())
-            );
-        }
-
-        @Override
-        public String getPassword() {
-            return user.getPasswordHash();
-        }
-
-        @Override
-        public String getUsername() {
-            return user.getPhone();
-        }
-
-        @Override
-        public boolean isAccountNonExpired() {
-            return true;
-        }
-
-        @Override
-        public boolean isAccountNonLocked() {
-            return true;
-        }
-
-        @Override
-        public boolean isCredentialsNonExpired() {
-            return true;
-        }
-
-        @Override
-        public boolean isEnabled() {
-            return user.getIsVerified() || true; // Allow unverified users to login
-        }
-    }
 }

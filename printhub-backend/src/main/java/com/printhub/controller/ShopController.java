@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.printhub.util.JwtUtil;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +29,7 @@ import java.util.List;
 public class ShopController {
 
     private final ShopService shopService;
+    private final com.printhub.util.JwtUtil jwtUtil;
 
     @GetMapping("/nearby")
     @Operation(summary = "Find nearby shops")
@@ -55,7 +58,7 @@ public class ShopController {
     public ResponseEntity<ApiResponse<ShopDTO>> createShop(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CreateShopRequest request) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = jwtUtil.extractUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Shop registration submitted", shopService.createShop(userId, request)));
     }
 
@@ -65,7 +68,7 @@ public class ShopController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id,
             @Valid @RequestBody UpdateShopRequest request) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = jwtUtil.extractUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Shop updated", shopService.updateShop(id, userId, request)));
     }
 
@@ -75,7 +78,7 @@ public class ShopController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long shopId,
             @Valid @RequestBody CreatePrinterRequest request) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = jwtUtil.extractUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Printer added", shopService.addPrinter(shopId, userId, request)));
     }
 
@@ -86,7 +89,7 @@ public class ShopController {
             @PathVariable Long shopId,
             @PathVariable Long printerId,
             @Valid @RequestBody UpdatePrinterRequest request) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = jwtUtil.extractUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Printer updated", shopService.updatePrinter(shopId, printerId, userId, request)));
     }
 
@@ -96,7 +99,7 @@ public class ShopController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long shopId,
             @Valid @RequestBody CreatePricingRuleRequest request) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = jwtUtil.extractUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Pricing rule added", shopService.addPricingRule(shopId, userId, request)));
     }
 
@@ -105,15 +108,31 @@ public class ShopController {
     public ResponseEntity<ApiResponse<PagedResponse<ShopDTO>>> getMyShops(
             @AuthenticationPrincipal UserDetails userDetails,
             Pageable pageable) {
-        Long userId = getUserIdFromDetails(userDetails);
-        // TODO: Implement proper pagination
+        Long userId = jwtUtil.extractUserId(userDetails);
+        Page<ShopDTO> shopPage = shopService.getOwnerShops(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(PagedResponse.<ShopDTO>builder()
-                .content(shopService.getOwnerShops(userId, pageable).toList())
+                .content(shopPage.getContent())
+                .pageNumber(shopPage.getNumber())
+                .pageSize(shopPage.getSize())
+                .totalElements(shopPage.getTotalElements())
+                .totalPages(shopPage.getTotalPages())
                 .build()));
     }
 
-    private Long getUserIdFromDetails(UserDetails userDetails) {
-        // TODO: Extract user ID from JWT claims
-        return 1L;
+    @GetMapping
+    @Operation(summary = "Get all shops (paginated)")
+    public ResponseEntity<ApiResponse<PagedResponse<ShopDTO>>> getAllShops(
+            @RequestParam(required = false) String status,
+            Pageable pageable) {
+        Page<ShopDTO> shopPage = shopService.getAllShops(pageable, status);
+        return ResponseEntity.ok(ApiResponse.success(PagedResponse.<ShopDTO>builder()
+                .content(shopPage.getContent())
+                .pageNumber(shopPage.getNumber())
+                .pageSize(shopPage.getSize())
+                .totalElements(shopPage.getTotalElements())
+                .totalPages(shopPage.getTotalPages())
+                .build()));
     }
+
+    
 }

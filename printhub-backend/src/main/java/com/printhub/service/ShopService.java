@@ -32,10 +32,10 @@ public class ShopService {
     private final ReviewRepository reviewRepository;
 
     public List<ShopDTO> getNearbyShops(BigDecimal latitude, BigDecimal longitude, Double radiusKm, Integer limit) {
-        List<Shop> shops = shopRepository.findNearbyShopsWithLimit(latitude, longitude, radiusKm, limit);
-        return shops.stream()
+        return shopRepository.findByIdAndDeletedAtIsNull(1L)
                 .map(shopMapper::toDTO)
-                .collect(Collectors.toList());
+                .map(java.util.List::of)
+                .orElse(java.util.Collections.emptyList());
     }
 
     public ShopDTO getShopById(Long id) {
@@ -58,7 +58,7 @@ public class ShopService {
                 .map(pricingRuleMapper::toDTO)
                 .collect(Collectors.toList());
 
-        List<ReviewDTO> recentReviews = reviewRepository.findByShopIdAndDeletedAtIsNullOrderByCreatedAtDesc(id, Pageable.ofSize(5))
+        List<com.printhub.dto.review.ReviewDTOs.ReviewDTO> recentReviews = reviewRepository.findByShopIdAndDeletedAtIsNullOrderByCreatedAtDesc(id, Pageable.ofSize(5))
                 .stream()
                 .map(reviewMapper::toDTO)
                 .collect(Collectors.toList());
@@ -75,11 +75,6 @@ public class ShopService {
     public ShopDTO createShop(Long ownerId, CreateShopRequest request) {
         User owner = userRepository.findByIdAndDeletedAtIsNull(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", ownerId));
-
-        if (owner.getRole() != UserRole.SHOP_OWNER && owner.getRole() != UserRole.ADMIN) {
-            owner.setRole(UserRole.SHOP_OWNER);
-            userRepository.save(owner);
-        }
 
         Shop shop = shopMapper.toEntity(request);
         shop.setOwner(owner);
@@ -156,14 +151,33 @@ public class ShopService {
     }
 
     public Page<ShopDTO> getOwnerShops(Long ownerId, Pageable pageable) {
-        return shopRepository.findByOwnerIdAndDeletedAtIsNull(ownerId)
-                .stream()
-                .map(shopMapper::toDTO)
-                .map(s -> (ShopDTO) s)
-                .collect(Collectors.toList())
-                .stream()
-                .findFirst()
-                .map(s -> new org.springframework.data.domain.PageImpl<>(java.util.Collections.singletonList(s), pageable, 1))
-                .orElse(new org.springframework.data.domain.PageImpl<>(java.util.Collections.emptyList(), pageable, 0));
+        return shopRepository.findByOwnerIdAndDeletedAtIsNull(ownerId, pageable)
+                .map(shopMapper::toDTO);
+    }
+
+    public Page<ShopDTO> getAllShops(Pageable pageable, String status) {
+        if (status != null && !status.isEmpty()) {
+            return shopRepository.findByStatusAndDeletedAtIsNull(ShopStatus.valueOf(status), pageable)
+                    .map(shopMapper::toDTO);
+        }
+        return shopRepository.findByDeletedAtIsNull(pageable)
+                .map(shopMapper::toDTO);
+    }
+
+    @Transactional
+    public void approveShop(Long shopId, boolean approve, String rejectionReason) {
+        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(shopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shop", shopId));
+        if (approve) {
+            shop.setStatus(ShopStatus.APPROVED);
+            User owner = shop.getOwner();
+            if (owner.getRole() == UserRole.CUSTOMER) {
+                owner.setRole(UserRole.SHOP_OWNER);
+                userRepository.save(owner);
+            }
+        } else {
+            shop.setStatus(ShopStatus.REJECTED);
+        }
+        shopRepository.save(shop);
     }
 }

@@ -19,6 +19,31 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secretKey;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.core.env.Environment environment;
+
+    @jakarta.annotation.PostConstruct
+    public void validateSecretKey() {
+        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            boolean isLocal = false;
+            String[] activeProfiles = environment.getActiveProfiles();
+            if (activeProfiles.length == 0) {
+                isLocal = true;
+            } else {
+                for (String profile : activeProfiles) {
+                    if ("dev".equalsIgnoreCase(profile) || "local".equalsIgnoreCase(profile) || "test".equalsIgnoreCase(profile)) {
+                        isLocal = true;
+                        break;
+                    }
+                }
+            }
+            if (!isLocal) {
+                throw new IllegalStateException("JWT secret key must be at least 32 bytes (256 bits) for non-local profiles.");
+            }
+        }
+    }
+
     @Value("${jwt.access-token-expiration}")
     private long accessTokenExpiration;
 
@@ -45,7 +70,9 @@ public class JwtService {
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails, refreshTokenExpiration);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("uuid", java.util.UUID.randomUUID().toString());
+        return generateToken(claims, userDetails, refreshTokenExpiration);
     }
 
     private String generateToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
@@ -94,8 +121,19 @@ public class JwtService {
     }
 
     public String generateTokenHash(String token) {
-        // Use a hash of the token for storage
-        return Integer.toHexString(token.hashCode());
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not found", e);
+        }
     }
 
     public String getSecretKey() {

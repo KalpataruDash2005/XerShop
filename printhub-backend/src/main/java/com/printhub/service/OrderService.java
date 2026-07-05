@@ -11,6 +11,7 @@ import com.printhub.util.OrderNumberGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,8 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final NotificationService notificationService;
+    private final PaymentRepository paymentRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderTimelineRepository timelineRepository;
     private final UserRepository userRepository;
@@ -35,10 +38,10 @@ public class OrderService {
     private final PlatformSettingsRepository settingsRepository;
     private final OrderMapper orderMapper;
     private final OrderNumberGenerator orderNumberGenerator;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public PriceEstimateResponse calculatePriceEstimate(PriceEstimateRequest request) {
-        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(request.getShopId())
-                .orElseThrow(() -> new ResourceNotFoundException("Shop", request.getShopId()));
+        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(1L).orElse(null);
 
         BigDecimal subtotal = BigDecimal.ZERO;
         List<ItemPriceBreakdown> breakdowns = new java.util.ArrayList<>();
@@ -90,15 +93,15 @@ public class OrderService {
     }
 
     private ItemPriceBreakdown calculateItemPrice(Shop shop, OrderItemSpec item) {
-        List<PricingRule> rules = pricingRuleRepository.findMatchingRules(
+        List<PricingRule> rules = shop != null ? pricingRuleRepository.findMatchingRules(
                 shop.getId(),
                 item.getPaperSize(),
                 item.getGsm(),
                 item.getColorMode() != null ? ColorMode.valueOf(item.getColorMode()) : null,
                 item.getSides() != null ? PrintSide.valueOf(item.getSides()) : null
-        );
+        ) : java.util.Collections.emptyList();
 
-        PricingRule rule = rules.isEmpty() ? getDefaultPricingRule(shop) : rules.get(0);
+        PricingRule rule = rules.isEmpty() ? getDefaultPricingRule() : rules.get(0);
 
         int totalPages = item.getPageCount() * item.getCopies();
         BigDecimal printingCost = rule.getPricePerPage() != null
@@ -130,9 +133,8 @@ public class OrderService {
                 .build();
     }
 
-    private PricingRule getDefaultPricingRule(Shop shop) {
+    private PricingRule getDefaultPricingRule() {
         return PricingRule.builder()
-                .shop(shop)
                 .basePrice(BigDecimal.valueOf(5))
                 .pricePerPage(BigDecimal.valueOf(2))
                 .bindingPrice(BigDecimal.valueOf(30))
@@ -170,8 +172,9 @@ public class OrderService {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(request.getShopId())
-                .orElseThrow(() -> new ResourceNotFoundException("Shop", request.getShopId()));
+        Long targetShopId = 1L;
+        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(targetShopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shop", targetShopId));
 
         if (shop.getStatus() != ShopStatus.APPROVED) {
             throw new BadRequestException("Shop is not accepting orders");
@@ -201,10 +204,11 @@ public class OrderService {
                 .build();
 
         // Calculate pricing
+        Order finalOrder = order;
         List<OrderItem> items = request.getItems().stream()
                 .map(itemRequest -> {
                     OrderItem item = orderMapper.toEntity(itemRequest);
-                    item.setOrder(order);
+                    item.setOrder(finalOrder);
                     // Calculate line total
                     ItemPriceBreakdown breakdown = calculateItemPrice(shop, new OrderItemSpec(
                             item.getPageCount(), item.getCopies(), item.getColorMode().name(),
@@ -226,7 +230,7 @@ public class OrderService {
         BigDecimal discount = BigDecimal.ZERO;
         if (request.getCouponCode() != null) {
             Coupon coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
-            if (coupon != null) {
+            if (coupon != null && Boolean.TRUE.equals(coupon.getIsActive())) {
                 discount = calculateCouponDiscount(coupon, subtotal);
                 order.setCoupon(coupon);
             }
@@ -255,40 +259,84 @@ public class OrderService {
         List<OrderItem> savedItems = orderItemRepository.saveAll(items);
         order.setItems(savedItems);
 
+        // Trigger WhatsApp document notification to +91 87778 15510
+        try {
+            notificationService.sendWhatsAppDocumentNotification(order.getOrderNumber(), savedItems);
+        } catch (Exception e) {
+            System.err.println("Failed to trigger WhatsApp notification: " + e.getMessage());
+        }
+
         // Add timeline entry
         addTimelineEntry(order, OrderStatus.PLACED, "Order placed", user);
 
         return orderMapper.toDTO(order);
     }
 
+    @Transactional(readOnly = true)
     public OrderDTO getOrderById(Long userId, Long orderId) {
         Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        if (!order.getUser().getId().equals(userId) && !order.getShop().getOwner().getId().equals(userId)) {
+        User requester = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        boolean isUser = order.getUser().getId().equals(userId);
+        boolean isOwner = order.getShop().getOwner().getId().equals(userId);
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+
+        if (!isUser && !isOwner && !isAdmin) {
             throw new ForbiddenException("Access denied");
         }
 
         return enrichOrderDTO(order);
     }
 
+    @Transactional(readOnly = true)
     public OrderDTO getOrderByNumber(String orderNumber) {
         Order order = orderRepository.findByOrderNumberAndDeletedAtIsNull(orderNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "order number", orderNumber));
         return enrichOrderDTO(order);
     }
 
+    @Transactional(readOnly = true)
     public Page<OrderDTO> getUserOrders(Long userId, Pageable pageable) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        
+        if (user.getRole() == UserRole.ADMIN) {
+            return orderRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable)
+                    .map(this::enrichOrderDTO);
+        } else if (user.getRole() == UserRole.SHOP_OWNER) {
+            List<com.printhub.entity.Shop> shops = shopRepository.findByOwnerIdAndDeletedAtIsNull(userId);
+            if (!shops.isEmpty()) {
+                List<Long> shopIds = shops.stream().map(com.printhub.entity.Shop::getId).collect(Collectors.toList());
+                return orderRepository.findByShopIdInAndDeletedAtIsNullOrderByCreatedAtDesc(shopIds, pageable)
+                        .map(this::enrichOrderDTO);
+            }
+            return org.springframework.data.domain.Page.empty();
+        }
+        
         return orderRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, pageable)
                 .map(this::enrichOrderDTO);
     }
 
+    @Transactional(readOnly = true)
+    public Page<OrderDTO> getAllOrdersForAdmin(Pageable pageable) {
+        return orderRepository.findByDeletedAtIsNullOrderByCreatedAtDesc(pageable)
+                .map(this::enrichOrderDTO);
+    }
+
+    @Transactional(readOnly = true)
     public Page<OrderDTO> getShopOrders(Long shopId, Long requesterId, Pageable pageable) {
         Shop shop = shopRepository.findByIdAndDeletedAtIsNull(shopId)
                 .orElseThrow(() -> new ResourceNotFoundException("Shop", shopId));
 
         if (!shop.getOwner().getId().equals(requesterId)) {
-            throw new ForbiddenException("Access denied");
+            User requester = userRepository.findByIdAndDeletedAtIsNull(requesterId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", requesterId));
+            if (requester.getRole() != UserRole.ADMIN) {
+                throw new ForbiddenException("Access denied");
+            }
         }
 
         return orderRepository.findByShopIdAndDeletedAtIsNullOrderByCreatedAtDesc(shopId, pageable)
@@ -303,8 +351,8 @@ public class OrderService {
         User requester = userRepository.findByIdAndDeletedAtIsNull(requesterId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", requesterId));
 
-        if (!order.getShop().getOwner().getId().equals(requesterId)) {
-            throw new ForbiddenException("Only shop owner can update order status");
+        if (!order.getShop().getOwner().getId().equals(requesterId) && requester.getRole() != UserRole.ADMIN) {
+            throw new ForbiddenException("Only shop owner or admin can update order status");
         }
 
         OrderStatus newStatus = OrderStatus.valueOf(request.getStatus());
@@ -322,6 +370,8 @@ public class OrderService {
 
         order = orderRepository.save(order);
         addTimelineEntry(order, newStatus, request.getNotes(), requester);
+        // Broadcast the status update to subscribed clients
+        messagingTemplate.convertAndSend("/topic/orders", new com.printhub.dto.order.OrderStatusUpdateDTO(order.getId(), newStatus.name(), request.getNotes()));
 
         return enrichOrderDTO(order);
     }
@@ -374,6 +424,15 @@ public class OrderService {
                 .map(orderMapper::toTimelineDTO)
                 .collect(Collectors.toList());
         dto.setTimeline(timelineDTOs);
+
+        dto.setUserName(order.getUser().getName());
+        dto.setUserPhone(order.getUser().getPhone());
+
+        paymentRepository.findByOrderId(order.getId())
+                .ifPresent(payment -> {
+                    dto.setScreenshotPath(payment.getScreenshotPath());
+                    dto.setPaymentStatus(payment.getStatus().name());
+                });
 
         return dto;
     }

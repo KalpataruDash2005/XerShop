@@ -22,19 +22,70 @@ interface UploadedFile {
 
 export default function UploadPage() {
   const router = useRouter();
+  const { addItem, clearCart } = useCartStore();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const countPdfPages = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      if (file.type !== 'application/pdf') {
+        resolve(1);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const buffer = reader.result as ArrayBuffer;
+          const uint8 = new Uint8Array(buffer);
+          const text = new TextDecoder('latin1').decode(uint8);
+
+          const rootPagesMatch = text.match(/\/Type\s*\/Pages[\s\S]*?\/Count\s*(\d+)/);
+          if (rootPagesMatch) {
+            resolve(parseInt(rootPagesMatch[1], 10));
+            return;
+          }
+
+          const countMatch = text.match(/\/Count\s*(\d+)\s*[^/]*\/Type\s*\/Pages/);
+          if (countMatch) {
+            resolve(parseInt(countMatch[1], 10));
+            return;
+          }
+
+          const pageCount = (text.match(/\/Type\s*\/Page[^s]/g) || []).length;
+          if (pageCount > 0) {
+            resolve(pageCount);
+            return;
+          }
+
+          const singleCount = (text.match(/\/Count\s+(\d+)/g) || [])
+            .map(m => parseInt(m.match(/\d+/)?.[0] || '1', 10))
+            .reduce((a, b) => a + b, 0);
+          if (singleCount > 0) {
+            resolve(singleCount);
+            return;
+          }
+
+          resolve(1);
+        } catch (e) {
+          resolve(1);
+        }
+      };
+      reader.onerror = () => resolve(1);
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
 
-    acceptedFiles.forEach((file) => {
+    for (const file of acceptedFiles) {
+      const pageCount = await countPdfPages(file);
       const uploadedFile: UploadedFile = {
         id: generateId(),
         file,
         name: file.name,
         size: file.size,
-        pageCount: Math.floor(Math.random() * 20) + 1, // Simulated - would use PDF.js in production
+        pageCount: pageCount,
       };
 
       if (file.type.startsWith('image/')) {
@@ -47,9 +98,9 @@ export default function UploadPage() {
       } else {
         setFiles((prev) => [...prev, uploadedFile]);
       }
-    });
+    }
 
-    setTimeout(() => setIsProcessing(false), 500);
+    setIsProcessing(false);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -76,23 +127,24 @@ export default function UploadPage() {
       return;
     }
 
-    // Store files in cart/session and navigate to configure
-    const cartItems = files.map((f) => ({
-      id: f.id,
-      fileName: f.name,
-      fileUrl: f.preview || URL.createObjectURL(f.file),
-      fileType: f.file.type,
-      pageCount: f.pageCount,
-      copies: 1,
-      colorMode: 'BW' as const,
-      sides: 'SINGLE' as const,
-      paperSize: 'A4',
-      gsm: 70,
-      binding: 'NONE',
-      lamination: false,
-    }));
+    clearCart();
+    files.forEach((f) => {
+      addItem({
+        id: f.id,
+        fileName: f.name,
+        fileUrl: f.preview || (typeof window !== 'undefined' ? URL.createObjectURL(f.file) : ''),
+        fileType: f.file.type,
+        pageCount: f.pageCount,
+        copies: 1,
+        colorMode: 'BW',
+        sides: 'SINGLE',
+        paperSize: 'A4',
+        gsm: 70,
+        binding: 'NONE',
+        lamination: false,
+      });
+    });
 
-    // In production, store in state management or session
     router.push('/configure');
   };
 

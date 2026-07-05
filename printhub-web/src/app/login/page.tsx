@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -23,7 +23,18 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const { setUser, setTokens } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+  const { isAuthenticated, setUser, setTokens } = useAuthStore();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && isAuthenticated) {
+      router.push('/');
+    }
+  }, [mounted, isAuthenticated, router]);
 
   const {
     register,
@@ -42,10 +53,14 @@ export default function LoginPage() {
         setTokens(response.data.accessToken, response.data.refreshToken);
         setUser(response.data.user);
         toast.success('Login successful!');
-        router.push('/orders');
+        if (response.data.user.role === 'ADMIN' || response.data.user.role === 'SUPER_ADMIN') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/');
+        }
       }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Login failed. Please try again.';
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Login failed. Please try again.';
       toast.error(message);
     } finally {
       setIsLoading(false);

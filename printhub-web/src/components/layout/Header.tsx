@@ -2,19 +2,24 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { Menu, X, Printer, User, MapPin, ShoppingBag } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const { isAuthenticated, user, logout } = useAuthStore();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const navLinks = [
     { href: '/', label: 'Home' },
-    { href: '/shops', label: 'Find Shops' },
-    { href: '/orders', label: 'My Orders' },
   ];
 
   return (
@@ -34,7 +39,7 @@ export function Header() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                href={link.href as any}
                 className={cn(
                   'text-sm font-medium transition-colors',
                   pathname === link.href
@@ -45,19 +50,52 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            {mounted && isAuthenticated && user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN' && (
+              <Link
+                href="/orders"
+                className={cn(
+                  'text-sm font-medium transition-colors',
+                  pathname === '/orders'
+                    ? 'text-primary'
+                    : 'text-slate-600 hover:text-secondary'
+                )}
+              >
+                My Orders
+              </Link>
+            )}
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Log In
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button variant="primary" size="sm">
-                Sign Up
-              </Button>
-            </Link>
+            {mounted && isAuthenticated ? (
+              <>
+                <span className="text-sm font-medium text-slate-700">
+                  Hi, {user?.name}
+                </span>
+                {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                  <Link href="/admin/dashboard">
+                    <Button variant="primary" size="sm">
+                      Admin Panel
+                    </Button>
+                  </Link>
+                )}
+                <Button variant="outline" size="sm" onClick={logout}>
+                  Log Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost" size="sm">
+                    Log In
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant="primary" size="sm">
+                    Sign Up
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           <button
@@ -74,7 +112,7 @@ export function Header() {
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
-                  href={link.href}
+                  href={link.href as any}
                   className={cn(
                     'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
                     pathname === link.href
@@ -86,17 +124,48 @@ export function Header() {
                   {link.label}
                 </Link>
               ))}
-              <div className="flex gap-2 mt-4 px-4">
-                <Link href="/login" className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    Log In
-                  </Button>
+              {mounted && isAuthenticated && user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN' && (
+                <Link
+                  href="/orders"
+                  className={cn(
+                    'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                    pathname === '/orders'
+                      ? 'bg-primary-50 text-primary'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  )}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  My Orders
                 </Link>
-                <Link href="/register" className="flex-1">
-                  <Button variant="primary" className="w-full">
-                    Sign Up
-                  </Button>
-                </Link>
+              )}
+              <div className="flex flex-col gap-2 mt-4 px-4">
+                {mounted && isAuthenticated ? (
+                  <>
+                    {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                      <Link href="/admin/dashboard" className="w-full" onClick={() => setIsMenuOpen(false)}>
+                        <Button variant="primary" className="w-full">
+                          Admin Panel
+                        </Button>
+                      </Link>
+                    )}
+                    <Button variant="outline" className="w-full" onClick={logout}>
+                      Log Out ({user?.name})
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/login" className="flex-1">
+                      <Button variant="outline" className="w-full">
+                        Log In
+                      </Button>
+                    </Link>
+                    <Link href="/register" className="flex-1">
+                      <Button variant="primary" className="w-full">
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </nav>
           </div>

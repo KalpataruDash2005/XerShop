@@ -29,7 +29,7 @@ export default function HomePage() {
               <h4 className="font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-slate-300">
                 <li><Link href="/about" className="hover:text-white transition">About Us</Link></li>
-                <li><Link href="/shops" className="hover:text-white transition">Find Shops</Link></li>
+                <li><Link href="/shops/1" className="hover:text-white transition">Our Shop</Link></li>
                 <li><Link href="/orders" className="hover:text-white transition">Track Order</Link></li>
               </ul>
             </div>

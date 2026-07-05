@@ -25,6 +25,27 @@ public class PaymentDTOs {
         private String currency;
         private String method;
         private LocalDateTime createdAt;
+        private String utr;
+        private String screenshotPath;
+        private String userName;
+        private String userPhone;
+        private String contactPhone;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SubmitPaymentRequest {
+        @jakarta.validation.constraints.NotNull(message = "Order ID is required")
+        private Long orderId;
+
+        @jakarta.validation.constraints.NotBlank(message = "UTR number is required")
+        private String utr;
+
+        private String screenshotPath;
+
+        private String contactPhone;
     }
 
     @Data
@@ -66,14 +87,7 @@ public class PaymentDTOs {
         private String razorpaySignature;
     }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class RazorpayWebhookRequest {
-        private String event;
-        private com.razorpay.PaymentEntity payload;
-    }
+
 
     @Data
     @Builder

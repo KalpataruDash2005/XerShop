@@ -1,6 +1,5 @@
--- Printhub Database Schema - Phase 2
+-- Printhub Database Schema - H2 compatible
 -- Flyway Migration V1
--- ===================================
 
 -- Users Table
 CREATE TABLE users (
@@ -9,17 +8,14 @@ CREATE TABLE users (
     email VARCHAR(150) UNIQUE,
     phone VARCHAR(15) UNIQUE NOT NULL,
     password_hash VARCHAR(255),
-    role ENUM('CUSTOMER', 'SHOP_OWNER', 'ADMIN') NOT NULL,
+    role VARCHAR(20) NOT NULL,
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     profile_image_url VARCHAR(500),
     firebase_token VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP NULL,
-    INDEX idx_users_email (email),
-    INDEX idx_users_phone (phone),
-    INDEX idx_users_role (role)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL
+);
 
 -- Addresses Table
 CREATE TABLE addresses (
@@ -35,11 +31,10 @@ CREATE TABLE addresses (
     longitude DECIMAL(10,7),
     is_default BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT fk_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_addresses_user (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- Shops Table
 CREATE TABLE shops (
@@ -58,21 +53,17 @@ CREATE TABLE shops (
     latitude DECIMAL(10,7),
     longitude DECIMAL(10,7),
     logo_url VARCHAR(500),
-    status ENUM('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED') NOT NULL DEFAULT 'PENDING',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     commission_percent DECIMAL(5,2),
     rating_avg DECIMAL(3,2) DEFAULT 0.00,
     total_reviews INT NOT NULL DEFAULT 0,
     is_accepting_orders BOOLEAN NOT NULL DEFAULT TRUE,
     operating_hours VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT fk_shops_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_shops_owner (owner_id),
-    INDEX idx_shops_status (status),
-    INDEX idx_shops_location (latitude, longitude),
-    INDEX idx_shops_city (city)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_shops_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- Printers Table
 CREATE TABLE printers (
@@ -80,8 +71,8 @@ CREATE TABLE printers (
     shop_id BIGINT NOT NULL,
     name VARCHAR(100) NOT NULL,
     model VARCHAR(100),
-    type ENUM('LASER_BW', 'LASER_COLOR', 'INKJET', 'PHOTO') NOT NULL,
-    status ENUM('ACTIVE', 'MAINTENANCE', 'OFFLINE') NOT NULL DEFAULT 'ACTIVE',
+    type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     max_paper_size VARCHAR(10),
     supports_color BOOLEAN NOT NULL DEFAULT FALSE,
     supports_duplex BOOLEAN NOT NULL DEFAULT FALSE,
@@ -90,12 +81,10 @@ CREATE TABLE printers (
     total_prints INT NOT NULL DEFAULT 0,
     last_maintenance_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT fk_printers_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
-    INDEX idx_printers_shop (shop_id),
-    INDEX idx_printers_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_printers_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
+);
 
 -- Inventory Table
 CREATE TABLE inventory (
@@ -111,11 +100,10 @@ CREATE TABLE inventory (
     is_low_stock BOOLEAN NOT NULL DEFAULT FALSE,
     last_restocked_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT fk_inventory_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
-    INDEX idx_inventory_shop (shop_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_inventory_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
+);
 
 -- Pricing Rules Table
 CREATE TABLE pricing_rules (
@@ -123,9 +111,9 @@ CREATE TABLE pricing_rules (
     shop_id BIGINT NOT NULL,
     paper_size VARCHAR(20),
     gsm INT,
-    color_mode ENUM('BW', 'COLOR'),
-    sides ENUM('SINGLE', 'DOUBLE'),
-    binding ENUM('NONE', 'SPIRAL', 'HARD', 'SOFT', 'STAPLE'),
+    color_mode VARCHAR(10),
+    sides VARCHAR(10),
+    binding VARCHAR(10),
     base_price DECIMAL(10,2) NOT NULL,
     price_per_page DECIMAL(10,2),
     price_per_copy DECIMAL(10,2),
@@ -134,18 +122,17 @@ CREATE TABLE pricing_rules (
     min_pages INT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_pricing_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
-    INDEX idx_pricing_shop (shop_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_pricing_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
+);
 
 -- Coupons Table
 CREATE TABLE coupons (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) UNIQUE NOT NULL,
     description VARCHAR(255),
-    type ENUM('PERCENTAGE', 'FIXED') NOT NULL,
-    value DECIMAL(10,2) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    discount_value DECIMAL(10,2) NOT NULL,
     min_order_amount DECIMAL(10,2),
     max_discount_amount DECIMAL(10,2),
     usage_limit INT,
@@ -156,12 +143,10 @@ CREATE TABLE coupons (
     valid_from TIMESTAMP NOT NULL,
     valid_until TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT fk_coupons_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE SET NULL,
-    INDEX idx_coupons_code (code),
-    INDEX idx_coupons_status (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_coupons_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE SET NULL
+);
 
 -- Wallets Table
 CREATE TABLE wallets (
@@ -173,11 +158,9 @@ CREATE TABLE wallets (
     referral_code VARCHAR(20) UNIQUE,
     referred_by BIGINT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_wallets_user (user_id),
-    INDEX idx_wallets_referral_code (referral_code)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- Orders Table
 CREATE TABLE orders (
@@ -185,8 +168,8 @@ CREATE TABLE orders (
     order_number VARCHAR(20) UNIQUE NOT NULL,
     user_id BIGINT NOT NULL,
     shop_id BIGINT NOT NULL,
-    status ENUM('PLACED', 'ACCEPTED', 'REJECTED', 'PRINTING', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED') NOT NULL DEFAULT 'PLACED',
-    delivery_type ENUM('PICKUP', 'DELIVERY') NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PLACED',
+    delivery_type VARCHAR(10) NOT NULL,
     address_id BIGINT NULL,
     subtotal DECIMAL(10,2) NOT NULL,
     discount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -200,18 +183,13 @@ CREATE TABLE orders (
     estimated_completion_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
     CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_orders_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
     CONSTRAINT fk_orders_address FOREIGN KEY (address_id) REFERENCES addresses(id) ON DELETE SET NULL,
-    CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE SET NULL,
-    INDEX idx_orders_user (user_id),
-    INDEX idx_orders_shop (shop_id),
-    INDEX idx_orders_status (status),
-    INDEX idx_orders_created (created_at),
-    INDEX idx_orders_order_number (order_number)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE SET NULL
+);
 
 -- Order Items Table
 CREATE TABLE order_items (
@@ -222,32 +200,29 @@ CREATE TABLE order_items (
     file_type VARCHAR(50),
     page_count INT NOT NULL,
     copies INT NOT NULL,
-    color_mode ENUM('BW', 'COLOR') NOT NULL,
-    sides ENUM('SINGLE', 'DOUBLE') NOT NULL,
+    color_mode VARCHAR(10) NOT NULL,
+    sides VARCHAR(10) NOT NULL,
     paper_size VARCHAR(20),
     gsm INT,
-    binding ENUM('NONE', 'SPIRAL', 'HARD', 'SOFT', 'STAPLE'),
+    binding VARCHAR(10),
     lamination BOOLEAN NOT NULL DEFAULT FALSE,
     page_range VARCHAR(100),
     line_total DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-    INDEX idx_order_items_order (order_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
 
 -- Order Timeline Table
 CREATE TABLE order_timeline (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_id BIGINT NOT NULL,
-    status ENUM('PLACED', 'ACCEPTED', 'REJECTED', 'PRINTING', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED') NOT NULL,
+    status VARCHAR(20) NOT NULL,
     notes TEXT,
     changed_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_order_timeline_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-    CONSTRAINT fk_order_timeline_user FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_order_timeline_order (order_id),
-    INDEX idx_order_timeline_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_order_timeline_user FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+);
 
 -- Payments Table
 CREATE TABLE payments (
@@ -256,36 +231,29 @@ CREATE TABLE payments (
     razorpay_order_id VARCHAR(100),
     razorpay_payment_id VARCHAR(100),
     razorpay_signature VARCHAR(255),
-    status ENUM('CREATED', 'SUCCESS', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'CREATED',
+    status VARCHAR(20) NOT NULL DEFAULT 'CREATED',
     amount DECIMAL(10,2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'INR',
     method VARCHAR(50),
     failure_reason VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-    INDEX idx_payments_order (order_id),
-    INDEX idx_payments_status (status),
-    INDEX idx_payments_razorpay_order (razorpay_order_id),
-    INDEX idx_payments_razorpay_payment (razorpay_payment_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
 
 -- Wallet Transactions Table
 CREATE TABLE wallet_transactions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     wallet_id BIGINT NOT NULL,
-    type ENUM('CREDIT', 'DEBIT', 'REFUND', 'REFERRAL_BONUS', 'CASHBACK') NOT NULL,
+    type VARCHAR(20) NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
     balance_after DECIMAL(10,2) NOT NULL,
     description VARCHAR(255),
     order_id BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_wallet_trans_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
-    CONSTRAINT fk_wallet_trans_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL,
-    INDEX idx_wallet_trans_wallet (wallet_id),
-    INDEX idx_wallet_trans_type (type),
-    INDEX idx_wallet_trans_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_wallet_trans_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL
+);
 
 -- Reviews Table
 CREATE TABLE reviews (
@@ -300,16 +268,12 @@ CREATE TABLE reviews (
     shop_response_at TIMESTAMP NULL,
     is_visible BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
     CONSTRAINT fk_reviews_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_reviews_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
-    INDEX idx_reviews_order (order_id),
-    INDEX idx_reviews_shop (shop_id),
-    INDEX idx_reviews_user (user_id),
-    INDEX idx_reviews_rating (rating)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_reviews_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
+);
 
 -- Notifications Table
 CREATE TABLE notifications (
@@ -323,11 +287,8 @@ CREATE TABLE notifications (
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     read_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_notifications_user (user_id),
-    INDEX idx_notifications_read (is_read),
-    INDEX idx_notifications_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- Employees Table
 CREATE TABLE employees (
@@ -341,13 +302,11 @@ CREATE TABLE employees (
     can_view_reports BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
     CONSTRAINT fk_employees_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
-    CONSTRAINT fk_employees_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_employees_shop (shop_id),
-    INDEX idx_employees_user (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_employees_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- Referrals Table
 CREATE TABLE referrals (
@@ -360,10 +319,8 @@ CREATE TABLE referrals (
     rewarded_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_referrals_referrer FOREIGN KEY (referrer_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_referrals_referred FOREIGN KEY (referred_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_referrals_referrer (referrer_id),
-    INDEX idx_referrals_referred (referred_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_referrals_referred FOREIGN KEY (referred_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- Audit Logs Table
 CREATE TABLE audit_logs (
@@ -372,18 +329,14 @@ CREATE TABLE audit_logs (
     action VARCHAR(100) NOT NULL,
     entity_type VARCHAR(50),
     entity_id BIGINT,
-    old_values JSON,
-    new_values JSON,
+    old_values TEXT,
+    new_values TEXT,
     ip_address VARCHAR(45),
     user_agent VARCHAR(500),
     description TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_audit_user (user_id),
-    INDEX idx_audit_action (action),
-    INDEX idx_audit_entity (entity_type, entity_id),
-    INDEX idx_audit_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
 
 -- CMS Banners Table
 CREATE TABLE cms_banners (
@@ -396,11 +349,9 @@ CREATE TABLE cms_banners (
     valid_from TIMESTAMP NULL,
     valid_until TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP NULL,
-    INDEX idx_cms_banners_position (position),
-    INDEX idx_cms_banners_active (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL
+);
 
 -- CMS Pages Table
 CREATE TABLE cms_pages (
@@ -412,14 +363,12 @@ CREATE TABLE cms_pages (
     author_id BIGINT NULL,
     published_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT fk_cms_pages_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_cms_pages_slug (slug),
-    INDEX idx_cms_pages_published (is_published)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_cms_pages_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+);
 
--- Categories Table (for print service categories)
+-- Categories Table
 CREATE TABLE categories (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -430,12 +379,10 @@ CREATE TABLE categories (
     display_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL,
-    INDEX idx_categories_slug (slug),
-    INDEX idx_categories_parent (parent_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
+);
 
 -- Platform Settings Table
 CREATE TABLE platform_settings (
@@ -445,12 +392,11 @@ CREATE TABLE platform_settings (
     description VARCHAR(255),
     updated_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_platform_settings_user FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_platform_settings_key (setting_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_platform_settings_user FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
 
--- Refresh Tokens Table (for JWT authentication)
+-- Refresh Tokens Table
 CREATE TABLE refresh_tokens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -459,10 +405,8 @@ CREATE TABLE refresh_tokens (
     is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     revoked_at TIMESTAMP NULL,
-    CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_refresh_tokens_user (user_id),
-    INDEX idx_refresh_tokens_hash (token_hash)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 -- OTP Verification Table
 CREATE TABLE otp_verifications (
@@ -470,13 +414,9 @@ CREATE TABLE otp_verifications (
     phone VARCHAR(15) NULL,
     email VARCHAR(150) NULL,
     otp_code VARCHAR(6) NOT NULL,
-    purpose ENUM('REGISTRATION', 'LOGIN', 'PASSWORD_RESET', 'PHONE_VERIFY', 'EMAIL_VERIFY') NOT NULL,
+    purpose VARCHAR(20) NOT NULL,
     is_used BOOLEAN NOT NULL DEFAULT FALSE,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    used_at TIMESTAMP NULL,
-    INDEX idx_otp_phone (phone),
-    INDEX idx_otp_email (email),
-    INDEX idx_otp_purpose (purpose),
-    INDEX idx_otp_expires (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    used_at TIMESTAMP NULL
+);

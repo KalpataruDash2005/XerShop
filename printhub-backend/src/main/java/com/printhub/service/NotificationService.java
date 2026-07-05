@@ -101,4 +101,38 @@ public class NotificationService {
             case CANCELLED -> "Your order " + orderNumber + " has been cancelled.";
         };
     }
+
+    @org.springframework.beans.factory.annotation.Value("${twilio.account-sid:}")
+    private String twilioAccountSid;
+
+    @org.springframework.beans.factory.annotation.Value("${twilio.auth-token:}")
+    private String twilioAuthToken;
+
+    @org.springframework.beans.factory.annotation.Value("${twilio.phone-from:}")
+    private String twilioPhoneFrom;
+
+    public void sendWhatsAppDocumentNotification(String orderNumber, java.util.List<OrderItem> items) {
+        try {
+            if (twilioAccountSid == null || twilioAccountSid.trim().isEmpty()) {
+                System.out.println("[SIMULATED WHATSAPP] Document sent for order " + orderNumber + " to ");
+                return;
+            }
+            com.twilio.Twilio.init(twilioAccountSid, twilioAuthToken);
+            String messageText = "New Order Placed: " + orderNumber + "\nDocuments:\n" +
+                    items.stream()
+                         .map(item -> "- " + item.getFileName() + " (" + item.getPageCount() + " pages)")
+                         .collect(java.util.stream.Collectors.joining("\n"));
+
+            String fromPhone = twilioPhoneFrom.startsWith("whatsapp:") ? twilioPhoneFrom : "whatsapp:" + twilioPhoneFrom;
+            com.twilio.rest.api.v2010.account.Message.creator(
+                    new com.twilio.type.PhoneNumber("whatsapp: "),
+                    new com.twilio.type.PhoneNumber(fromPhone),
+                    messageText
+            ).create();
+            System.out.println("WhatsApp notification sent for order: " + orderNumber);
+        } catch (Exception e) {
+            System.err.println("Failed to send WhatsApp message: " + e.getMessage());
+            System.out.println("[FALLBACK WHATSAPP] Document sent for order " + orderNumber + " to ");
+        }
+    }
 }

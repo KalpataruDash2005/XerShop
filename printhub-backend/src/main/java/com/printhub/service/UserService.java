@@ -54,18 +54,18 @@ public class UserService {
         return userMapper.toDTO(user);
     }
 
-    public Page<Object> getAddresses(Long userId, Pageable pageable) {
-        return addressRepository.findByUserIdAndDeletedAtIsNull(userId)
+    public Object getAddresses(Long userId, Pageable pageable) {
+        java.util.List<com.printhub.dto.address.AddressDTOs.AddressDTO> list = addressRepository.findByUserIdAndDeletedAtIsNull(userId)
                 .stream()
                 .map(addressMapper::toDTO)
-                .map(a -> (Object) a)
-                .collect(java.util.stream.Collectors.toList())
-                .stream()
-                .findFirst()
-                .map(a -> new org.springframework.data.domain.PageImpl<>(
-                        java.util.Collections.singletonList(a), pageable, 1
-                ))
-                .orElse(new org.springframework.data.domain.PageImpl<>(java.util.Collections.emptyList(), pageable, 0));
+                .collect(java.util.stream.Collectors.toList());
+        if (pageable == null || pageable.isUnpaged()) {
+            return list;
+        }
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), list.size());
+        java.util.List<com.printhub.dto.address.AddressDTOs.AddressDTO> subList = (start <= list.size()) ? list.subList(start, end) : java.util.Collections.emptyList();
+        return new org.springframework.data.domain.PageImpl<>(subList, pageable, list.size());
     }
 
     @Transactional
@@ -111,7 +111,7 @@ public class UserService {
 
     public UserStatsDTO getUserStats(Long userId) {
         long totalOrders = orderRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, Pageable.unpaged()).getTotalElements();
-        long completedOrders = orderRepository.countByShopIdAndStatus(null, com.printhub.entity.OrderStatus.COMPLETED);
+        long completedOrders = orderRepository.countByUserIdAndStatus(userId, com.printhub.entity.OrderStatus.COMPLETED);
 
         BigDecimal walletBalance = walletRepository.findByUserId(userId)
                 .map(w -> w.getBalance())

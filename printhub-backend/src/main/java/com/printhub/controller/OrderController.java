@@ -16,6 +16,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import com.printhub.util.JwtUtil;
+
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
+    private final JwtUtil jwtUtil;
 
     @PostMapping("/price-estimate")
     @Operation(summary = "Calculate price estimate")
@@ -106,7 +109,6 @@ public class OrderController {
     }
 
     private Long getUserIdFromDetails(UserDetails userDetails) {
-        // TODO: Extract user ID from JWT claims
-        return 1L;
+        return jwtUtil.extractUserId(userDetails);
     }
 }

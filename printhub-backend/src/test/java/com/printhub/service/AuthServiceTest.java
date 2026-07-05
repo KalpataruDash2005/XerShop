@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -132,7 +133,7 @@ class AuthServiceTest {
         when(auth.getName()).thenReturn("test@example.com");
         when(userRepository.findByEmailOrPhone(anyString(), anyString()))
                 .thenReturn(Optional.of(testUser));
-        when(jwtService.generateAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtService.generateAccessToken(any(UserDetails.class))).thenReturn("accessToken");
         when(jwtService.generateRefreshToken(any())).thenReturn("refreshToken");
         when(jwtService.getAccessTokenExpiration()).thenReturn(3600000L);
 

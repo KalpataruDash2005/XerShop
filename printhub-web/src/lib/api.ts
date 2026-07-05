@@ -41,6 +41,15 @@ class ApiClient {
 
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
+    try {
+      const authData = localStorage.getItem('printhub-auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed.state?.accessToken || null;
+      }
+    } catch (e) {
+      console.error(e);
+    }
     return localStorage.getItem('accessToken');
   }
 
@@ -48,6 +57,7 @@ class ApiClient {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('printhub-auth');
   }
 
   setToken(accessToken: string, refreshToken?: string): void {
@@ -55,6 +65,18 @@ class ApiClient {
     localStorage.setItem('accessToken', accessToken);
     if (refreshToken) {
       localStorage.setItem('refreshToken', refreshToken);
+    }
+    try {
+      const authData = localStorage.getItem('printhub-auth');
+      const parsed = authData ? JSON.parse(authData) : { state: {} };
+      parsed.state.accessToken = accessToken;
+      if (refreshToken) {
+        parsed.state.refreshToken = refreshToken;
+      }
+      parsed.state.isAuthenticated = true;
+      localStorage.setItem('printhub-auth', JSON.stringify(parsed));
+    } catch (e) {
+      console.error(e);
     }
   }
 
@@ -179,11 +201,29 @@ export const orderApi = {
 
 // Payment API
 export const paymentApi = {
-  createOrder: (orderId: string) =>
-    api.post<ApiResponse<PaymentOrderResponse>>('/payments/create-order', { orderId }),
+  submit: (data: { orderId: number; utr: string; screenshotPath?: string }) =>
+    api.post<ApiResponse<Payment>>('/payments/submit', data),
+};
 
-  verify: (data: { orderId: string; razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
-    api.post<ApiResponse<Payment>>('/payments/verify', data),
+// Admin API
+export const adminApi = {
+  getOrders: (page = 0, size = 20) =>
+    api.get<ApiResponse<PagedResponse<Order>>>(`/admin/orders?page=${page}&size=${size}`),
+
+  updateOrderStatus: (id: number, data: { status: string; notes?: string }) =>
+    api.put<ApiResponse<Order>>(`/admin/orders/${id}/status`, data),
+
+  getPendingPayments: () =>
+    api.get<ApiResponse<Payment[]>>('/admin/payments/pending'),
+
+  approvePayment: (id: number) =>
+    api.post<ApiResponse<Payment>>(`/admin/payments/${id}/approve`, {}),
+
+  rejectPayment: (id: number, reason?: string) =>
+    api.post<ApiResponse<Payment>>(`/admin/payments/${id}/reject${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, {}),
+
+  ping: () =>
+    api.get<ApiResponse<string>>('/admin/ping'),
 };
 
 // Types
@@ -288,6 +328,10 @@ export interface Order {
   createdAt: string;
   items: OrderItem[];
   timeline: OrderTimeline[];
+  userName?: string;
+  userPhone?: string;
+  screenshotPath?: string;
+  paymentStatus?: string;
 }
 
 export interface OrderItem {
@@ -386,6 +430,11 @@ export interface Payment {
   currency: string;
   method?: string;
   createdAt: string;
+  utr?: string;
+  screenshotPath?: string;
+  userName?: string;
+  userPhone?: string;
+  contactPhone?: string;
 }
 
 export interface PaymentOrderResponse {

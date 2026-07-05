@@ -21,6 +21,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByIdAndDeletedAtIsNull(Long id);
 
+    Page<Order> findByDeletedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
+
     Optional<Order> findByOrderNumberAndDeletedAtIsNull(String orderNumber);
 
     Page<Order> findByUserAndDeletedAtIsNullOrderByCreatedAtDesc(User user, Pageable pageable);
@@ -61,4 +63,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query(value = "SELECT o.* FROM orders o WHERE o.user_id = :userId AND o.status = 'COMPLETED' AND o.deleted_at IS NULL ORDER BY o.created_at DESC LIMIT 1", nativeQuery = true)
     Optional<Order> findLatestCompletedOrderByUser(@Param("userId") Long userId);
+
+    Page<Order> findByShopIdInAndDeletedAtIsNullOrderByCreatedAtDesc(List<Long> shopIds, Pageable pageable);
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.user.id = :userId AND o.status = :status AND o.deletedAt IS NULL")
+    long countByUserIdAndStatus(@Param("userId") Long userId, @Param("status") OrderStatus status);
 }

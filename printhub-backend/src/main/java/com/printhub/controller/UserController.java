@@ -4,6 +4,8 @@ import com.printhub.dto.address.AddressDTOs.*;
 import com.printhub.dto.common.ApiResponse;
 import com.printhub.dto.common.PagedResponse;
 import com.printhub.dto.user.UserDTOs.*;
+import com.printhub.entity.User;
+import com.printhub.repository.UserRepository;
 import com.printhub.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
 
     @GetMapping("/me")
     @Operation(summary = "Get current user profile")
@@ -84,8 +87,16 @@ public class UserController {
     }
 
     private Long getUserIdFromDetails(UserDetails userDetails) {
-        // TODO: Extract user ID from JWT claims or fetch from database
-        // For now, return a placeholder - in real implementation, you'd get this from JWT
-        return 1L;
+        if (userDetails instanceof com.printhub.security.UserPrincipal) {
+            return ((com.printhub.security.UserPrincipal) userDetails).getId();
+        }
+        try {
+            return Long.parseLong(userDetails.getUsername());
+        } catch (NumberFormatException e) {
+            User user = userRepository.findByPhone(userDetails.getUsername())
+                    .or(() -> userRepository.findByEmail(userDetails.getUsername()))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            return user.getId();
+        }
     }
 }

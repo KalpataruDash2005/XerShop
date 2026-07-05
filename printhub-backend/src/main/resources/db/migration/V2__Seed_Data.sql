@@ -1,10 +1,5 @@
--- Printhub Seed Data - Phase 2
+-- Printhub Seed Data
 -- Flyway Migration V2
--- ===================================
-
--- Insert Admin User (password: admin123 - BCrypt hashed)
-INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
-('System Admin', 'admin@printhub.com', '+919999999999', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.Vz5WZ9GY9J6X2W', 'ADMIN', TRUE, NOW(), NOW());
 
 -- Insert Platform Settings
 INSERT INTO platform_settings (setting_key, setting_value, description) VALUES
@@ -41,62 +36,62 @@ INSERT INTO cms_banners (title, image_url, link_url, position, is_active, create
 ('Get 20% off on first order', 'https://placehold.co/1200x400/22D3EE/1A2740?text=20%25+OFF+First+Order', '/coupons', 2, TRUE, NOW(), NOW());
 
 -- Insert Sample Coupon
-INSERT INTO coupons (code, description, type, value, min_order_amount, max_discount_amount, usage_limit, is_active, is_platform_wide, shop_id, valid_from, valid_until, created_at, updated_at) VALUES
-('WELCOME20', '20% off on your first order', 'PERCENTAGE', 20.00, 100.00, 100.00, 10000, TRUE, TRUE, NULL, NOW(), DATE_ADD(NOW(), INTERVAL 1 YEAR), NOW(), NOW()),
-('FLAT50', 'Flat Rs.50 off on orders above Rs.200', 'FIXED', 50.00, 200.00, 50.00, 5000, TRUE, TRUE, NULL, NOW(), DATE_ADD(NOW(), INTERVAL 6 MONTH), NOW(), NOW());
+INSERT INTO coupons (code, description, type, discount_value, min_order_amount, max_discount_amount, usage_limit, is_active, is_platform_wide, shop_id, valid_from, valid_until, created_at, updated_at) VALUES
+('WELCOME20', '20% off on your first order', 'PERCENTAGE', 20.00, 100.00, 100.00, 10000, TRUE, TRUE, NULL, NOW(), DATEADD('YEAR', 1, NOW()), NOW(), NOW()),
+('FLAT50', 'Flat Rs.50 off on orders above Rs.200', 'FIXED', 50.00, 200.00, 50.00, 5000, TRUE, TRUE, NULL, NOW(), DATEADD('MONTH', 6, NOW()), NOW(), NOW());
 
--- Create Fulltext index for shop search (if not exists)
--- ALTER TABLE shops ADD FULLTEXT INDEX ft_shops_search (name, description, city);
+-- Insert Admin User (password: admin123 - BCrypt hashed)
+INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
+('System Admin', 'admin@printhub.com', '+910000000000', '$2a$12$OMEumqN8S9lzLcp5eXbrZe1SYreH3qNw1pFavEfS6HH7M3uJhr.Ka', 'ADMIN', TRUE, NOW(), NOW());
 
--- Update shop ratings trigger (to auto-calculate average rating)
-DELIMITER //
-CREATE TRIGGER update_shop_rating AFTER INSERT ON reviews
-FOR EACH ROW
-BEGIN
-    UPDATE shops
-    SET rating_avg = (
-        SELECT AVG(rating) FROM reviews WHERE shop_id = NEW.shop_id AND is_visible = TRUE AND deleted_at IS NULL
-    ),
-    total_reviews = (
-        SELECT COUNT(*) FROM reviews WHERE shop_id = NEW.shop_id AND is_visible = TRUE AND deleted_at IS NULL
-    )
-    WHERE id = NEW.shop_id;
-END//
-CREATE TRIGGER update_shop_rating_update AFTER UPDATE ON reviews
-FOR EACH ROW
-BEGIN
-    UPDATE shops
-    SET rating_avg = (
-        SELECT AVG(rating) FROM reviews WHERE shop_id = NEW.shop_id AND is_visible = TRUE AND deleted_at IS NULL
-    ),
-    total_reviews = (
-        SELECT COUNT(*) FROM reviews WHERE shop_id = NEW.shop_id AND is_visible = TRUE AND deleted_at IS NULL
-    )
-    WHERE id = NEW.shop_id;
-END//
-CREATE TRIGGER update_shop_rating_delete AFTER DELETE ON reviews
-FOR EACH ROW
-BEGIN
-    UPDATE shops
-    SET rating_avg = COALESCE((
-        SELECT AVG(rating) FROM reviews WHERE shop_id = OLD.shop_id AND is_visible = TRUE AND deleted_at IS NULL
-    ), 0),
-    total_reviews = COALESCE((
-        SELECT COUNT(*) FROM reviews WHERE shop_id = OLD.shop_id AND is_visible = TRUE AND deleted_at IS NULL
-    ), 0)
-    WHERE id = OLD.shop_id;
-END//
-DELIMITER ;
+-- Insert Demo Shop Owner (password: admin123 - BCrypt hashed)
+INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
+('Demo Shop', 'shop@demo.com', '+919999999991', '$2a$12$OMEumqN8S9lzLcp5eXbrZe1SYreH3qNw1pFavEfS6HH7M3uJhr.Ka', 'SHOP_OWNER', TRUE, NOW(), NOW());
 
--- Trigger for inventory low stock update
-DELIMITER //
-CREATE TRIGGER check_low_stock AFTER UPDATE ON inventory
-FOR EACH ROW
-BEGIN
-    IF NEW.quantity < COALESCE(NEW.low_stock_threshold, 0) THEN
-        UPDATE inventory SET is_low_stock = TRUE WHERE id = NEW.id;
-    ELSE
-        UPDATE inventory SET is_low_stock = FALSE WHERE id = NEW.id;
-    END IF;
-END//
-DELIMITER ;
+-- Insert Default Shop for the Demo Owner (owner_id = 2, status = APPROVED)
+INSERT INTO shops (owner_id, name, description, gst_number, phone, email, address, city, state, pincode, latitude, longitude, status, commission_percent, rating_avg, total_reviews, is_accepting_orders, created_at, updated_at) VALUES
+(2, 'Demo Print Shop', 'Default printing shop', '27AAAAA1111A1Z1', '+919999999991', 'shop@demo.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', 19.0760, 72.8777, 'APPROVED', 0.00, 5.00, 1, TRUE, NOW(), NOW());
+
+-- Insert Default Printer for Demo Shop
+INSERT INTO printers (shop_id, name, model, type, status, max_paper_size, supports_color, supports_duplex, max_gsm, prints_per_minute, total_prints, created_at, updated_at) VALUES
+(1, 'Primary Laser Printer', 'Canon imageRUNNER 2206', 'LASER', 'ACTIVE', 'A4', TRUE, TRUE, 120, 22, 0, NOW(), NOW());
+
+-- Insert Default Pricing Rules for Demo Shop
+INSERT INTO pricing_rules (shop_id, paper_size, gsm, color_mode, sides, binding, base_price, price_per_page, price_per_copy, lamination_price, binding_price, min_pages, is_active, created_at, updated_at) VALUES
+(1, 'A4', 75, 'BW', 'SINGLE', 'NONE', 10.00, 2.00, 2.00, 10.00, 0.00, 1, TRUE, NOW(), NOW()),
+(1, 'A4', 75, 'BW', 'DOUBLE', 'NONE', 15.00, 1.50, 1.50, 10.00, 0.00, 1, TRUE, NOW(), NOW()),
+(1, 'A4', 75, 'COLOR', 'SINGLE', 'NONE', 20.00, 10.00, 10.00, 10.00, 0.00, 1, TRUE, NOW(), NOW()),
+(1, 'A4', 75, 'COLOR', 'DOUBLE', 'NONE', 30.00, 8.00, 8.00, 10.00, 0.00, 1, TRUE, NOW(), NOW());
+
+-- Insert Demo Customer
+INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
+('Ravi Kumar', 'ravi@demo.com', '+919876543210', '$2a$12$OMEumqN8S9lzLcp5eXbrZe1SYreH3qNw1pFavEfS6HH7M3uJhr.Ka', 'CUSTOMER', TRUE, NOW(), NOW());
+
+-- Insert Address for Demo Customer (user_id = 3)
+INSERT INTO addresses (user_id, label, line1, line2, city, state, pincode, latitude, longitude, is_default, created_at) VALUES
+(3, 'Home', '456 Park Avenue', 'Andheri West', 'Mumbai', 'Maharashtra', '400053', 19.1365, 72.8296, TRUE, NOW());
+
+-- Insert Demo Orders
+INSERT INTO orders (order_number, user_id, shop_id, status, delivery_type, address_id, subtotal, discount, tax, delivery_charge, total_amount, notes, estimated_completion_at, created_at, updated_at) VALUES
+('PHSEED01', 3, 1, 'PRINTING', 'DELIVERY', 1, 240.00, 48.00, 34.56, 30.00, 256.56, 'Please deliver before 5 PM', DATEADD('HOUR', 4, NOW()), DATEADD('HOUR', -2, NOW()), NOW()),
+('PHSEED02', 3, 1, 'PLACED', 'PICKUP', NULL, 120.00, 0.00, 21.60, 0.00, 141.60, 'Urgent - need by evening', DATEADD('HOUR', 3, NOW()), DATEADD('HOUR', -1, NOW()), NOW());
+
+-- Insert Order Items
+INSERT INTO order_items (order_id, file_url, file_name, file_type, page_count, copies, color_mode, sides, paper_size, gsm, binding, lamination, line_total) VALUES
+(1, NULL, 'Resume.pdf', 'application/pdf', 2, 10, 'BW', 'SINGLE', 'A4', 75, 'NONE', FALSE, 60.00),
+(1, NULL, 'Project_Report.pdf', 'application/pdf', 15, 3, 'COLOR', 'DOUBLE', 'A4', 75, 'SPIRAL', TRUE, 180.00),
+(2, NULL, 'College_ID_Card.jpg', 'image/jpeg', 1, 20, 'COLOR', 'SINGLE', 'A4', 75, 'NONE', TRUE, 120.00);
+
+-- Insert Order Timeline
+INSERT INTO order_timeline (order_id, status, notes, changed_by, created_at) VALUES
+(1, 'PLACED', 'Order placed by customer', 3, DATEADD('HOUR', -2, NOW())),
+(1, 'ACCEPTED', 'Order accepted by shop', 2, DATEADD('HOUR', -1.5, NOW())),
+(1, 'PRINTING', 'Printing in progress', 2, DATEADD('HOUR', -0.5, NOW())),
+(2, 'PLACED', 'Order placed by customer', 3, DATEADD('HOUR', -1, NOW()));
+
+-- Insert Payments (utr, screenshot_path added by V3; contact_phone by V4)
+INSERT INTO payments (order_id, status, amount, currency, method, created_at, updated_at) VALUES
+(1, 'SUCCESS', 256.56, 'INR', 'UPI', DATEADD('HOUR', -2, NOW()), NOW()),
+(2, 'PENDING_VERIFICATION', 141.60, 'INR', 'UPI', DATEADD('HOUR', -1, NOW()), NOW());
+
+

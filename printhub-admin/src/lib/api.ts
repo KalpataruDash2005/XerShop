@@ -37,16 +37,34 @@ class ApiClient {
   }
 
   private getToken(): string | null {
+    try {
+      const authData = localStorage.getItem('printhub-admin-auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed.state?.token || null;
+      }
+    } catch (e) {
+      console.error(e);
+    }
     return localStorage.getItem('adminToken');
   }
 
   private clearToken(): void {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
+    localStorage.removeItem('printhub-admin-auth');
   }
 
   setToken(token: string): void {
     localStorage.setItem('adminToken', token);
+    try {
+      const authData = localStorage.getItem('printhub-admin-auth');
+      const parsed = authData ? JSON.parse(authData) : { state: {} };
+      parsed.state.token = token;
+      localStorage.setItem('printhub-admin-auth', JSON.stringify(parsed));
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async get<T>(url: string, config?: AxiosRequestConfig) {

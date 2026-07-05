@@ -13,7 +13,7 @@ public interface UserMapper {
 
     AuthDTOs.UserSummary toUserSummary(User user);
 
-    @Mapping(target = "role", expression = "java(role)")
+    @Mapping(target = "role", expression = "java(com.printhub.entity.UserRole.valueOf(role))")
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "passwordHash", ignore = true)
     @Mapping(target = "isVerified", constant = "false")

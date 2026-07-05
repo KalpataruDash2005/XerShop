@@ -1,67 +1,22 @@
 version: '3.8'
 
 services:
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: printhub-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: printhub
-      MYSQL_USER: printhub
-      MYSQL_PASSWORD: printhub123
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./printhub-backend/src/main/resources/db/migration:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - printhub-network
-
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: printhub-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - printhub-network
-
-  # Backend API
+  # Backend API (H2 in-memory database embedded)
   backend:
     build:
       context: ./printhub-backend
       dockerfile: Dockerfile
     container_name: printhub-backend
+    user: root
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/printhub?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata
-      SPRING_DATASOURCE_USERNAME: printhub
-      SPRING_DATASOURCE_PASSWORD: printhub123
-      SPRING_REDIS_HOST: redis
-      SPRING_REDIS_PORT: 6379
       JWT_SECRET: dev-secret-key-must-be-at-least-32-characters-long
       RAZORPAY_KEY_ID: rzp_test_dev
       RAZORPAY_KEY_SECRET: dev_secret
     ports:
       - "8080:8080"
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    volumes:
+      - h2-data:/app/db
     networks:
       - printhub-network
     healthcheck:
@@ -85,23 +40,22 @@ services:
     networks:
       - printhub-network
 
-  # Adminer (Database GUI)
+  # Adminer (Database GUI - for H2 via web console at /h2-console on backend)
   adminer:
     image: adminer:latest
     container_name: printhub-adminer
     ports:
       - "8081:8080"
     environment:
-      ADMINER_DEFAULT_SERVER: mysql
+      ADMINER_DEFAULT_SERVER: backend
     depends_on:
-      - mysql
+      - backend
     networks:
       - printhub-network
-
-volumes:
-  mysql_data:
-  redis_data:
 
 networks:
   printhub-network:
     driver: bridge
+
+volumes:
+  h2-data:

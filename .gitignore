@@ -1,2 +1,7 @@
 node_modules/
 .env
+.vscode/
+printhub-backend/target/
+printhub-web/.next/
+*.log
+*.tsbuildinfo

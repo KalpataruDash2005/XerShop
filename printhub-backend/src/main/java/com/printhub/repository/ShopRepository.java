@@ -20,7 +20,11 @@ public interface ShopRepository extends JpaRepository<Shop, Long> {
 
     List<Shop> findByOwnerIdAndDeletedAtIsNull(Long ownerId);
 
+    Page<Shop> findByOwnerIdAndDeletedAtIsNull(Long ownerId, Pageable pageable);
+
     List<Shop> findByStatusAndDeletedAtIsNull(ShopStatus status);
+
+    Page<Shop> findByDeletedAtIsNull(Pageable pageable);
 
     Page<Shop> findByStatusAndDeletedAtIsNull(ShopStatus status, Pageable pageable);
 
@@ -33,7 +37,9 @@ public interface ShopRepository extends JpaRepository<Shop, Long> {
             "sin(radians(s.latitude)))) AS distance " +
             "FROM shops s " +
             "WHERE s.status = 'APPROVED' AND s.is_accepting_orders = true AND s.deleted_at IS NULL " +
-            "HAVING distance <= :radius " +
+            "AND (6371 * acos(cos(radians(:lat)) * cos(radians(s.latitude)) * " +
+            "cos(radians(s.longitude) - radians(:lng)) + sin(radians(:lat)) * " +
+            "sin(radians(s.latitude)))) <= :radius " +
             "ORDER BY distance", nativeQuery = true)
     List<Shop> findNearbyShops(@Param("lat") BigDecimal latitude,
                                @Param("lng") BigDecimal longitude,
@@ -45,7 +51,9 @@ public interface ShopRepository extends JpaRepository<Shop, Long> {
             "sin(radians(s.latitude)))) AS distance " +
             "FROM shops s " +
             "WHERE s.status = 'APPROVED' AND s.is_accepting_orders = true AND s.deleted_at IS NULL " +
-            "HAVING distance <= :radius " +
+            "AND (6371 * acos(cos(radians(:lat)) * cos(radians(s.latitude)) * " +
+            "cos(radians(s.longitude) - radians(:lng)) + sin(radians(:lat)) * " +
+            "sin(radians(s.latitude)))) <= :radius " +
             "ORDER BY distance " +
             "LIMIT :limit", nativeQuery = true)
     List<Shop> findNearbyShopsWithLimit(@Param("lat") BigDecimal latitude,

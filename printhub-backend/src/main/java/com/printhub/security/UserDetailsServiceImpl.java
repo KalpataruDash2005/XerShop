@@ -19,19 +19,25 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(identifier)
-                .or(() -> userRepository.findByPhone(identifier))
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + identifier));
+        User user = null;
+        try {
+            Long id = Long.parseLong(identifier);
+            user = userRepository.findById(id).orElse(null);
+        } catch (NumberFormatException e) {
+            // Not a user ID, fallback to email/phone
+        }
+
+        if (user == null) {
+            user = userRepository.findByEmail(identifier)
+                    .or(() -> userRepository.findByPhone(identifier))
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found: " + identifier));
+        }
 
         if (user.isDeleted()) {
             throw new UsernameNotFoundException("User not found: " + identifier);
         }
 
-        return new org.springframework.security.core.userdetails.User(
-                user.getPhone(),
-                user.getPasswordHash() != null ? user.getPasswordHash() : "",
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
-        );
+        return new UserPrincipal(user);
     }
 
     public User getUserById(Long id) {

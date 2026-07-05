@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.printhub.dto.review.ReviewDTOs;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -110,7 +111,7 @@ public class ShopDTOs {
         private ShopDTO shop;
         private List<PrinterDTO> printers;
         private List<PricingRuleDTO> pricingRules;
-        private List<ReviewDTO> recentReviews;
+        private List<ReviewDTOs.ReviewDTO> recentReviews;
     }
 
     @Data

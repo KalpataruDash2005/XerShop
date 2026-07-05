@@ -39,6 +39,10 @@ public class OrderDTOs {
         private LocalDateTime createdAt;
         private List<OrderItemDTO> items;
         private List<TimelineDTO> timeline;
+        private String userName;
+        private String userPhone;
+        private String screenshotPath;
+        private String paymentStatus;
     }
 
     @Data

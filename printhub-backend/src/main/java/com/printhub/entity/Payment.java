@@ -35,6 +35,15 @@ public class Payment {
     @Column(name = "razorpay_signature", length = 255)
     private String razorpaySignature;
 
+    @Column(name = "utr", length = 100)
+    private String utr;
+
+    @Column(name = "screenshot_path", length = 500)
+    private String screenshotPath;
+
+    @Column(name = "contact_phone", length = 15)
+    private String contactPhone;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default

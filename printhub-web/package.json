@@ -27,7 +27,10 @@
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.3.0",
     "date-fns": "^3.6.0",
-    "react-hot-toast": "^2.4.1"
+    "react-hot-toast": "^2.4.1",
+    "@tanstack/react-query": "^5.45.0",
+    "@tanstack/react-table": "^8.17.3",
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@types/node": "^20.14.6",

@@ -24,6 +24,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByRazorpayPaymentId(String razorpayPaymentId);
 
+    Optional<Payment> findByUtr(String utr);
+
     List<Payment> findByStatus(PaymentStatus status);
 
     @Query("SELECT SUM(p.amount) FROM Payment p WHERE p.status = 'SUCCESS' AND p.createdAt BETWEEN :startDate AND :endDate")

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "orders", indexes = {
@@ -72,6 +73,10 @@ public class Order {
     @JoinColumn(name = "coupon_id")
     @ToString.Exclude
     private Coupon coupon;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    private List<OrderItem> items;
 
     @Column(name = "wallet_amount_used", precision = 10, scale = 2)
     private BigDecimal walletAmountUsed;

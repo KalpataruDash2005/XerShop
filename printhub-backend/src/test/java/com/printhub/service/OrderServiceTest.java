@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -51,6 +52,9 @@ class OrderServiceTest {
 
     @Mock
     private OrderNumberGenerator orderNumberGenerator;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
     @InjectMocks
     private OrderService orderService;
@@ -100,8 +104,7 @@ class OrderServiceTest {
                     .orderNumber(order.getOrderNumber())
                     .build();
         });
-        when(orderMapper.toItemDTO(any())).thenReturn(mock(OrderDTOs.OrderItemDTO.class));
-        when(orderMapper.toTimelineDTO(any())).thenReturn(mock(OrderDTOs.TimelineDTO.class));
+
 
         // When
         var result = orderService.getOrderById(1L, 1L);

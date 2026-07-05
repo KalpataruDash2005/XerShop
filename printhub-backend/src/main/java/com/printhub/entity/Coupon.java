@@ -31,7 +31,7 @@ public class Coupon {
     @Column(name = "type", nullable = false)
     private CouponType type;
 
-    @Column(name = "value", nullable = false, precision = 10, scale = 2)
+    @Column(name = "discount_value", nullable = false, precision = 10, scale = 2)
     private BigDecimal value;
 
     @Column(name = "min_order_amount", precision = 10, scale = 2)

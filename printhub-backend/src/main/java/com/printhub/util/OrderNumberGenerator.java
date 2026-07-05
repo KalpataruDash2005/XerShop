@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public class OrderNumberGenerator {
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HHmmss");
     private final AtomicLong counter = new AtomicLong(0);
 
