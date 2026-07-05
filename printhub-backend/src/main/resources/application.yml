@@ -93,6 +93,7 @@ google:
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   cors-allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:19006}
+  admin-whatsapp-numbers: ${ADMIN_WHATSAPP_NUMBERS:+919146922610,+918777815510,+917203971530}
 
 logging:
   level:

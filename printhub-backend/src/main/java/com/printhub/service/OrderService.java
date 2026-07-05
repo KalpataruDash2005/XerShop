@@ -259,9 +259,9 @@ public class OrderService {
         List<OrderItem> savedItems = orderItemRepository.saveAll(items);
         order.setItems(savedItems);
 
-        // Trigger WhatsApp document notification to +91 87778 15510
+        // Trigger WhatsApp notification to admins with full order details
         try {
-            notificationService.sendWhatsAppDocumentNotification(order.getOrderNumber(), savedItems);
+            notificationService.sendOrderPlacedToAdminWhatsApp(order, savedItems);
         } catch (Exception e) {
             System.err.println("Failed to trigger WhatsApp notification: " + e.getMessage());
         }

@@ -111,28 +111,66 @@ public class NotificationService {
     @org.springframework.beans.factory.annotation.Value("${twilio.phone-from:}")
     private String twilioPhoneFrom;
 
+    @org.springframework.beans.factory.annotation.Value("${app.admin-whatsapp-numbers}")
+    private String adminWhatsappNumbers;
+
     public void sendWhatsAppDocumentNotification(String orderNumber, java.util.List<OrderItem> items) {
         try {
-            if (twilioAccountSid == null || twilioAccountSid.trim().isEmpty()) {
-                System.out.println("[SIMULATED WHATSAPP] Document sent for order " + orderNumber + " to ");
-                return;
-            }
-            com.twilio.Twilio.init(twilioAccountSid, twilioAuthToken);
             String messageText = "New Order Placed: " + orderNumber + "\nDocuments:\n" +
                     items.stream()
                          .map(item -> "- " + item.getFileName() + " (" + item.getPageCount() + " pages)")
                          .collect(java.util.stream.Collectors.joining("\n"));
-
-            String fromPhone = twilioPhoneFrom.startsWith("whatsapp:") ? twilioPhoneFrom : "whatsapp:" + twilioPhoneFrom;
-            com.twilio.rest.api.v2010.account.Message.creator(
-                    new com.twilio.type.PhoneNumber("whatsapp: "),
-                    new com.twilio.type.PhoneNumber(fromPhone),
-                    messageText
-            ).create();
-            System.out.println("WhatsApp notification sent for order: " + orderNumber);
+            sendWhatsAppToAdmins(orderNumber, messageText);
         } catch (Exception e) {
-            System.err.println("Failed to send WhatsApp message: " + e.getMessage());
-            System.out.println("[FALLBACK WHATSAPP] Document sent for order " + orderNumber + " to ");
+            System.err.println("Failed to trigger WhatsApp notification: " + e.getMessage());
+        }
+    }
+
+    public void sendOrderPlacedToAdminWhatsApp(Order order, java.util.List<OrderItem> items) {
+        StringBuilder message = new StringBuilder();
+        message.append(" New Order Received!\n");
+        message.append(" Order: ").append(order.getOrderNumber()).append("\n");
+        message.append(" Status: PLACED\n");
+        message.append(" Customer: ").append(order.getUser().getName()).append("\n");
+        message.append(" Phone: ").append(order.getUser().getPhone()).append("\n");
+        message.append(" Delivery: ").append(order.getDeliveryType().name()).append("\n");
+        message.append(" Total: Rs.").append(order.getTotalAmount()).append("\n");
+        message.append(" Items:\n");
+        for (OrderItem item : items) {
+            message.append("  - ").append(item.getFileName())
+                    .append(" (").append(item.getPageCount()).append("p x ").append(item.getCopies()).append(" copies)\n");
+        }
+        message.append("\n View: ").append("http://localhost:8081/api/v1/admin/orders");
+        sendWhatsAppToAdmins(order.getOrderNumber(), message.toString());
+    }
+
+    private void sendWhatsAppToAdmins(String orderNumber, String messageText) {
+        String[] numbers = adminWhatsappNumbers.split(",");
+        for (String toNumber : numbers) {
+            toNumber = toNumber.trim();
+            try {
+                if (twilioAccountSid == null || twilioAccountSid.trim().isEmpty()) {
+                    String logMsg = "[SIMULATED WHATSAPP to " + toNumber + "] " + messageText.replace("\n", " | ");
+                    System.out.println(logMsg);
+                    java.nio.file.Files.writeString(
+                        java.nio.file.Paths.get("whatsapp_notifications.log"),
+                        java.time.LocalDateTime.now() + " " + logMsg + System.lineSeparator(),
+                        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+                    continue;
+                }
+                com.twilio.Twilio.init(twilioAccountSid, twilioAuthToken);
+                String fromPhone = twilioPhoneFrom.startsWith("whatsapp:") ? twilioPhoneFrom : "whatsapp:" + twilioPhoneFrom;
+                String toPhone = toNumber.startsWith("whatsapp:") ? toNumber : "whatsapp:" + toNumber;
+                com.twilio.rest.api.v2010.account.Message.creator(
+                        new com.twilio.type.PhoneNumber(toPhone),
+                        new com.twilio.type.PhoneNumber(fromPhone),
+                        messageText
+                ).create();
+                System.out.println("WhatsApp sent to " + toNumber + " for order: " + orderNumber);
+            } catch (Exception e) {
+                System.err.println("Failed to send WhatsApp to " + toNumber + ": " + e.getMessage());
+                System.out.println("[FALLBACK WHATSAPP to " + toNumber + "] " + messageText.replace("\n", " | "));
+            }
         }
     }
 }
