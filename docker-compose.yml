@@ -1,0 +1,49 @@
+services:
+  # Backend API (H2 in-memory database embedded)
+  backend:
+    build:
+      context: ./printhub-backend
+      dockerfile: Dockerfile
+    container_name: printhub-backend
+    user: root
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      JWT_SECRET: dev-secret-key-must-be-at-least-32-characters-long
+      RAZORPAY_KEY_ID: rzp_test_dev
+      RAZORPAY_KEY_SECRET: dev_secret
+    ports:
+      - "8080:8080"
+    volumes:
+      - h2-data:/app/db
+      - uploads-data:/app/uploads
+    networks:
+      - printhub-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Frontend Web (Next.js)
+  web:
+    build:
+      context: ./printhub-web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080/api/v1
+    container_name: printhub-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - printhub-network
+
+networks:
+  printhub-network:
+    driver: bridge
+
+volumes:
+  h2-data:
+  uploads-data:
