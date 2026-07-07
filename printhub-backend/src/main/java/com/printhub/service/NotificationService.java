@@ -14,7 +14,7 @@ import java.time.Duration;
 @Service
 public class NotificationService {
 
-    @Value("${app.base-url:}")
+    @Value("${APP_BASE_URL:}")
     private String baseUrl;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
