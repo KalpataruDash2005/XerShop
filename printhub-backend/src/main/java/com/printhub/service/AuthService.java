@@ -34,7 +34,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final TelegramBotService telegramBotService;
+    private final NotificationService notificationService;
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
@@ -147,7 +147,7 @@ public class AuthService {
         otpStore.put(request.getIdentifier(), new OtpEntry(otp, LocalDateTime.now().plusMinutes(5), user.getId()));
 
         String msg = "Your PrintHub password reset OTP is: " + otp + ". Valid for 5 minutes.";
-        telegramBotService.sendMessage("Forgot Password OTP for " + request.getIdentifier() + ": " + otp);
+        notificationService.sendMessage("Forgot Password OTP for " + request.getIdentifier() + ": " + otp);
 
         return otp;
     }
@@ -173,7 +173,7 @@ public class AuthService {
         String otp = String.format("%06d", secureRandom.nextInt(1000000));
         otpStore.put(request.getIdentifier(), new OtpEntry(otp, LocalDateTime.now().plusMinutes(5), null));
 
-        telegramBotService.sendMessage(request.getPurpose() + " OTP for " + request.getIdentifier() + ": " + otp);
+        notificationService.sendMessage(request.getPurpose() + " OTP for " + request.getIdentifier() + ": " + otp);
 
         return otp;
     }

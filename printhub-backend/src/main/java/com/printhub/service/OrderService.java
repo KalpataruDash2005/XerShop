@@ -26,7 +26,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final NotificationService notificationService;
-    private final TelegramBotService telegramBotService;
+    private final NotificationService notificationService;
     private final PaymentRepository paymentRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderTimelineRepository timelineRepository;
@@ -217,11 +217,11 @@ public class OrderService {
             System.err.println("Failed to trigger WhatsApp notification: " + e.getMessage());
         }
 
-        // Trigger Telegram notification
+        // Trigger notification
         try {
-            telegramBotService.sendOrderPlacedNotification(order, savedItems);
+            notificationService.sendOrderPlacedNotification(order, savedItems);
         } catch (Exception e) {
-            System.err.println("Failed to trigger Telegram notification: " + e.getMessage());
+            System.err.println("Failed to trigger notification: " + e.getMessage());
         }
 
         // Add timeline entry
