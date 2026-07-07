@@ -2,6 +2,7 @@ package com.printhub.service;
 
 import com.printhub.entity.Order;
 import com.printhub.entity.OrderItem;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -12,6 +13,9 @@ import java.time.Duration;
 
 @Service
 public class NotificationService {
+
+    @Value("${app.base-url:}")
+    private String baseUrl;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8))
@@ -25,13 +29,20 @@ public class NotificationService {
         text.append("Phone: ").append(order.getUser().getPhone()).append("\n");
         text.append("Delivery: ").append(order.getDeliveryType().name()).append("\n");
         text.append("Total: Rs.").append(order.getTotalAmount()).append("\n\n");
-        text.append("Items:\n");
+        text.append("Files:\n");
+        String firstFileUrl = null;
         for (OrderItem item : items) {
-            text.append("  - ").append(item.getFileName())
-                .append(" (").append(item.getPageCount()).append("p x ").append(item.getCopies()).append(" copies)\n");
+            String fileUrl = item.getFileUrl();
+            if (fileUrl != null && !fileUrl.isEmpty()) {
+                if (firstFileUrl == null) {
+                    firstFileUrl = fileUrl.startsWith("http") ? fileUrl : baseUrl + "/api/v1/files/" + fileUrl;
+                }
+                text.append("  - ").append(item.getFileName())
+                    .append(" (").append(item.getPageCount()).append("p x ").append(item.getCopies()).append(" copies)\n");
+            }
         }
 
-        sendNtfy("New Order: " + order.getOrderNumber(), text.toString());
+        sendNtfy("New Order: " + order.getOrderNumber(), text.toString(), firstFileUrl);
     }
 
     public void sendMessage(String text) {
@@ -48,16 +59,27 @@ public class NotificationService {
     }
 
     private void sendNtfy(String title, String message) {
+        sendNtfy(title, message, null);
+    }
+
+    private void sendNtfy(String title, String message, String clickUrl) {
         try {
-            String json = "{\"topic\":\"xeroxbooking-orders\",\"title\":\"" +
-                escapeJson(title) + "\",\"message\":\"" +
-                escapeJson(message) + "\",\"tags\":[\"package\"]}";
+            StringBuilder json = new StringBuilder();
+            json.append("{\"topic\":\"xeroxbooking-orders\",\"title\":\"")
+                .append(escapeJson(title))
+                .append("\",\"message\":\"")
+                .append(escapeJson(message))
+                .append("\",\"tags\":[\"package\"]");
+            if (clickUrl != null) {
+                json.append(",\"click\":\"").append(escapeJson(clickUrl)).append("\"");
+            }
+            json.append("}");
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://ntfy.sh"))
                     .header("Content-Type", "application/json")
                     .timeout(Duration.ofSeconds(8))
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .POST(HttpRequest.BodyPublishers.ofString(json.toString()))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

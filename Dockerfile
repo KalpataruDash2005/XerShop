@@ -35,6 +35,7 @@ COPY --from=frontend-build /app/public ./web/public
 # Uploads directory
 RUN mkdir -p /app/uploads
 
+ENV APP_BASE_URL=https://devloperpaglu-xershop.hf.space
 # Notifications via ntfy.sh
 
 # Entrypoint script
