@@ -30,7 +30,7 @@ public class TelegramBotService {
 
     public void sendOrderPlacedNotification(Order order, java.util.List<OrderItem> items) {
         StringBuilder text = new StringBuilder();
-        text.append("\u{1F4E6} *New Order Received!*\n\n");
+        text.append("\uD83D\uDCE6 *New Order Received!*\n\n");
         text.append("Order: ").append(order.getOrderNumber()).append("\n");
         text.append("Status: PLACED\n");
         text.append("Customer: ").append(order.getUser().getName()).append("\n");
@@ -58,7 +58,7 @@ public class TelegramBotService {
     }
 
     public void sendOrderStatusUpdate(String orderNumber, String status, String customerName) {
-        String text = "\u{1F6A8} Order Update\n\n"
+        String text = "\uD83D\uDEA8 Order Update\n\n"
             + "Order: " + orderNumber + "\n"
             + "Status: " + status + "\n"
             + "Customer: " + customerName;
