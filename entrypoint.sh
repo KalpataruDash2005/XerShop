@@ -3,7 +3,7 @@ set -e
 
 echo "Checking Telegram API connectivity..."
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-  wget -q --timeout=5 -O /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" && echo "Telegram API: OK" || echo "Telegram API: UNREACHABLE"
+  wget -q --timeout=15 -O /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" && echo "Telegram API: OK" || echo "Telegram API: UNREACHABLE (check firewall/network)"
 fi
 
 echo "Starting Backend on port 8080..."
