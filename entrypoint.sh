@@ -1,12 +1,6 @@
 #!/bin/sh
 set -e
 
-# Load .env if env vars not set
-if [ -f /app/.env ] && [ -z "$TELEGRAM_BOT_TOKEN" ]; then
-  . /app/.env
-  echo "Loaded env vars from .env file"
-fi
-
 echo "Checking Telegram API connectivity..."
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
   wget -q --timeout=5 -O /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" && echo "Telegram API: OK" || echo "Telegram API: UNREACHABLE"

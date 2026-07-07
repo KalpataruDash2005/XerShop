@@ -35,8 +35,9 @@ COPY --from=frontend-build /app/public ./web/public
 # Uploads directory
 RUN mkdir -p /app/uploads
 
-# Copy .env for env vars
-COPY .env /app/.env
+# Telegram credentials
+ENV TELEGRAM_BOT_TOKEN=8763830764:AAGYmnK9s3RBEEY8J46aEOGGsjY6jmC7Jqo
+ENV TELEGRAM_CHAT_ID=5510737806
 
 # Entrypoint script
 COPY entrypoint.sh /entrypoint.sh
