@@ -26,7 +26,6 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final NotificationService notificationService;
-    private final NotificationService notificationService;
     private final PaymentRepository paymentRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderTimelineRepository timelineRepository;
@@ -209,13 +208,6 @@ public class OrderService {
         // Save items
         List<OrderItem> savedItems = orderItemRepository.saveAll(items);
         order.setItems(savedItems);
-
-        // Trigger WhatsApp notification to admins with full order details
-        try {
-            notificationService.sendOrderPlacedToAdminWhatsApp(order, savedItems);
-        } catch (Exception e) {
-            System.err.println("Failed to trigger WhatsApp notification: " + e.getMessage());
-        }
 
         // Trigger notification
         try {
