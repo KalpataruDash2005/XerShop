@@ -2,6 +2,7 @@
 FROM eclipse-temurin:21-jdk-alpine AS backend-build
 WORKDIR /app
 RUN apk add --no-cache maven
+ENV MAVEN_OPTS="-Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=50.0"
 COPY printhub-backend/pom.xml .
 RUN mvn dependency:go-offline -B
 COPY printhub-backend/src ./src
@@ -38,29 +39,8 @@ RUN mkdir -p /app/uploads
 COPY .env /app/.env
 
 # Entrypoint script
-RUN printf '#!/bin/sh\n\
-set -e\n\
-\n\
-# Load .env if env vars not set\n\
-if [ -f /app/.env ] && [ -z "$TELEGRAM_BOT_TOKEN" ]; then\n\
-  . /app/.env\n\
-  echo "Loaded env vars from .env file"\n\
-fi\n\
-\n\
-echo "Checking Telegram API connectivity..."\n\
-if [ -n "$TELEGRAM_BOT_TOKEN" ]; then\n\
-  wget -q --timeout=5 -O /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" && echo "Telegram API: OK" || echo "Telegram API: UNREACHABLE"\n\
-fi\n\
-echo "Starting Backend on port 8080..."\n\
-JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=60.0 -Dhttps.protocols=TLSv1.2,TLSv1.3 -Djdk.tls.client.protocols=TLSv1.2 -Djava.net.preferIPv4Stack=true"\n\
-java $JAVA_OPTS -jar /app/backend.jar --server.port=8080 &\n\
-BACKEND_PID=$!\n\
-sleep 8\n\
-echo "Starting Frontend on port 3000..."\n\
-cd /app/web\n\
-PORT=3000 node server.js &\n\
-FRONTEND_PID=$!\n\
-wait $BACKEND_PID $FRONTEND_PID\n' > /entrypoint.sh && chmod +x /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 3000 8080
 
