@@ -57,8 +57,7 @@ EXPOSE 3000 8080
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV JWT_SECRET=change-this-in-production-must-be-32-chars-min
 ENV SHOW_SQL=false
-ENV TELEGRAM_BOT_TOKEN=
-ENV TELEGRAM_CHAT_ID=
+# Set via Hugging Face secrets or .env
 ENV CORS_ORIGINS=http://localhost:3000,http://localhost:7860,https://devloperpaglu-xershop.hf.space
 ENV SPRING_DATASOURCE_URL=jdbc:h2:file:/app/db/printhub;AUTO_RECONNECT=TRUE;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
 

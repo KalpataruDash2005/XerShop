@@ -30,8 +30,8 @@ public class TelegramBotService {
 
     public void sendOrderPlacedNotification(Order order, java.util.List<OrderItem> items) {
         StringBuilder text = new StringBuilder();
-        text.append("<b>New Order Received!</b>\n\n");
-        text.append("Order: <b>").append(order.getOrderNumber()).append("</b>\n");
+        text.append("\u{1F4E6} *New Order Received!*\n\n");
+        text.append("Order: ").append(order.getOrderNumber()).append("\n");
         text.append("Status: PLACED\n");
         text.append("Customer: ").append(order.getUser().getName()).append("\n");
         text.append("Phone: ").append(order.getUser().getPhone()).append("\n");
@@ -58,7 +58,7 @@ public class TelegramBotService {
     }
 
     public void sendOrderStatusUpdate(String orderNumber, String status, String customerName) {
-        String text = "<b>Order Update</b>\n\n"
+        String text = "\u{1F6A8} Order Update\n\n"
             + "Order: " + orderNumber + "\n"
             + "Status: " + status + "\n"
             + "Customer: " + customerName;
@@ -73,7 +73,7 @@ public class TelegramBotService {
         try {
             String url = "https://api.telegram.org/bot" + botToken + "/sendMessage";
             String json = "{\"chat_id\":\"" + chatId + "\",\"text\":\"" +
-                escapeJson(text) + "\",\"parse_mode\":\"HTML\"}";
+                escapeJson(text) + "\"}";
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))

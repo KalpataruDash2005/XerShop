@@ -94,7 +94,7 @@ google:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
-  cors-allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:19006,https://devloperpaglu-xeroxbooking.hf.space}
+  cors-allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:19006,https://devloperpaglu-xershop.hf.space}
   admin-whatsapp-numbers: ${ADMIN_WHATSAPP_NUMBERS:+919146922610,+918777815510,+917203971530}
   upload-dir: /app/uploads
 
