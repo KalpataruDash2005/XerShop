@@ -2,8 +2,14 @@
 set -e
 
 echo "Checking Telegram API connectivity..."
+echo "Bot token length: ${#TELEGRAM_BOT_TOKEN}"
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-  wget -q --timeout=15 -O /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" && echo "Telegram API: OK" || echo "Telegram API: UNREACHABLE (check firewall/network)"
+  echo "Token starts with: ${TELEGRAM_BOT_TOKEN:0:10}..."
+  echo "Testing DNS resolution..."
+  nslookup api.telegram.org 2>&1 || host api.telegram.org 2>&1 || echo "DNS: no lookup tool"
+  echo "Testing HTTPS connection..."
+  wget -v --timeout=15 -O /tmp/telegram_test.json "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" 2>&1 || true
+  cat /tmp/telegram_test.json 2>/dev/null || echo "No response file"
 fi
 
 echo "Starting Backend on port 8080..."
