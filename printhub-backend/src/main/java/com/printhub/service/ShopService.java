@@ -31,19 +31,22 @@ public class ShopService {
     private final ReviewMapper reviewMapper;
     private final ReviewRepository reviewRepository;
 
+    @Transactional(readOnly = true)
     public List<ShopDTO> getNearbyShops(BigDecimal latitude, BigDecimal longitude, Double radiusKm, Integer limit) {
-        return shopRepository.findByIdAndDeletedAtIsNull(1L)
+        List<Shop> shops = shopRepository.findNearbyShopsWithLimit(latitude, longitude, radiusKm, limit);
+        return shops.stream()
                 .map(shopMapper::toDTO)
-                .map(java.util.List::of)
-                .orElse(java.util.Collections.emptyList());
+                .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public ShopDTO getShopById(Long id) {
         Shop shop = shopRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Shop", id));
         return shopMapper.toDTO(shop);
     }
 
+    @Transactional(readOnly = true)
     public ShopDetailDTO getShopDetails(Long id) {
         Shop shop = shopRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Shop", id));
@@ -150,11 +153,13 @@ public class ShopService {
         return pricingRuleMapper.toDTO(rule);
     }
 
+    @Transactional(readOnly = true)
     public Page<ShopDTO> getOwnerShops(Long ownerId, Pageable pageable) {
         return shopRepository.findByOwnerIdAndDeletedAtIsNull(ownerId, pageable)
                 .map(shopMapper::toDTO);
     }
 
+    @Transactional(readOnly = true)
     public Page<ShopDTO> getAllShops(Pageable pageable, String status) {
         if (status != null && !status.isEmpty()) {
             return shopRepository.findByStatusAndDeletedAtIsNull(ShopStatus.valueOf(status), pageable)

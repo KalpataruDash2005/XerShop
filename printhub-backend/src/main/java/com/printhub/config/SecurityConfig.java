@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,21 +49,28 @@ public class SecurityConfig {
                     "/api/v1/auth/**",
                     "/api/v1/shops/nearby",
                     "/api/v1/shops/{id}",
-                    "/api/v1/cms/pages/**",
-                    "/api/v1/cms/banners",
-                    "/api/v1/categories",
+                    "/api/v1/shops/{id}/details",
+                    "/api/v1/shops",
+                    "/api/v1/categories/**",
+                    "/api/v1/cms/**",
                     "/api/v1/payments/webhook",
+                    "/api/v1/files/**",
                     "/actuator/health",
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/v3/api-docs/**",
                     "/v3/api-docs.yaml",
-                    "/webjars/**"
+                    "/webjars/**",
+                    "/h2-console/**"
                 ).permitAll()
+                // Authenticated user endpoints
+                .requestMatchers(HttpMethod.GET, "/api/v1/shops/my").authenticated()
                 // Admin endpoints
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                // Shop owner endpoints
-                .requestMatchers("/api/v1/shops/**").hasAnyRole("SHOP_OWNER", "ADMIN")
+                // Shop owner write endpoints
+                .requestMatchers(HttpMethod.POST, "/api/v1/shops/**").hasAnyRole("SHOP_OWNER", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/v1/shops/**").hasAnyRole("SHOP_OWNER", "ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/shops/**").hasAnyRole("SHOP_OWNER", "ADMIN")
                 // All other endpoints require authentication
                 .anyRequest().authenticated()
             )

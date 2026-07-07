@@ -47,29 +47,37 @@ public class AuthController {
 
     @PostMapping("/otp/send")
     @Operation(summary = "Send OTP for verification")
-    public ResponseEntity<ApiResponse<Void>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
-        // TODO: Implement OTP sending
-        return ResponseEntity.ok(ApiResponse.success("OTP sent successfully", null));
+    public ResponseEntity<ApiResponse<SendOtpResponse>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
+        String otp = authService.sendOtp(request);
+        SendOtpResponse resp = SendOtpResponse.builder()
+                .message("OTP sent successfully")
+                .otp(otp)
+                .build();
+        return ResponseEntity.ok(ApiResponse.success("OTP generated", resp));
     }
 
     @PostMapping("/otp/verify")
     @Operation(summary = "Verify OTP")
     public ResponseEntity<ApiResponse<Void>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
-        // TODO: Implement OTP verification
+        authService.verifyOtp(request);
         return ResponseEntity.ok(ApiResponse.success("OTP verified successfully", null));
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Request password reset")
-    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        // TODO: Implement password reset
-        return ResponseEntity.ok(ApiResponse.success("Password reset instructions sent", null));
+    @Operation(summary = "Request password reset OTP")
+    public ResponseEntity<ApiResponse<ForgotPasswordResponse>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        String otp = authService.forgotPassword(request);
+        ForgotPasswordResponse resp = ForgotPasswordResponse.builder()
+                .message("OTP sent to your email/WhatsApp")
+                .otp(otp)
+                .build();
+        return ResponseEntity.ok(ApiResponse.success("OTP generated", resp));
     }
 
     @PostMapping("/reset-password")
     @Operation(summary = "Reset password with OTP")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        // TODO: Implement password reset
+        authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.success("Password reset successful", null));
     }
 }

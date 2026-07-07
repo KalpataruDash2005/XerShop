@@ -141,6 +141,18 @@ export const authApi = {
 
   logout: () =>
     api.post<ApiResponse<void>>('/auth/logout'),
+
+  forgotPassword: (identifier: string) =>
+    api.post<ApiResponse<void>>('/auth/forgot-password', { identifier }),
+
+  resetPassword: (identifier: string, otp: string, newPassword: string) =>
+    api.post<ApiResponse<void>>('/auth/reset-password', { identifier, otp, newPassword }),
+
+  sendOtp: (identifier: string, purpose: string) =>
+    api.post<ApiResponse<{ message: string; otp: string }>>('/auth/otp/send', { identifier, purpose }),
+
+  verifyOtp: (identifier: string, otp: string, purpose: string) =>
+    api.post<ApiResponse<void>>('/auth/otp/verify', { identifier, otp, purpose }),
 };
 
 // User API
@@ -407,6 +419,7 @@ export interface PriceEstimateRequest {
   }[];
   couponCode?: string;
   walletAmountUsed?: number;
+  envelopePackaging?: boolean;
 }
 
 export interface PriceEstimateResponse {

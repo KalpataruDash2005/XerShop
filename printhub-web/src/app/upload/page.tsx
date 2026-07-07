@@ -79,8 +79,13 @@ export default function UploadPage() {
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 10) {
+      toast.error('You can upload a maximum of 10 files at a time');
+      return;
+    }
     setIsProcessing(true);
 
+    const newFiles: UploadedFile[] = [];
     for (const file of acceptedFiles) {
       const pageCount = await countPdfPages(file);
       const uploadedFile: UploadedFile = {
@@ -99,8 +104,11 @@ export default function UploadPage() {
         };
         reader.readAsDataURL(file);
       } else {
-        setFiles((prev) => [...prev, uploadedFile]);
+        newFiles.push(uploadedFile);
       }
+    }
+    if (newFiles.length > 0) {
+      setFiles((prev) => [...prev, ...newFiles]);
     }
 
     setIsProcessing(false);
@@ -133,39 +141,44 @@ export default function UploadPage() {
     setIsUploading(true);
     clearCart();
 
-    for (const f of files) {
-      try {
-        const res = await fileApi.upload(f.file);
-        if (res.success && res.data) {
-          const fileUrl = `/api/v1/files/${res.data.fileName}`;
-          addItem({
-            id: f.id,
-            fileName: f.name,
-            fileUrl,
-            fileType: f.file.type,
-            pageCount: f.pageCount,
-            copies: 1,
-            colorMode: 'BW',
-            sides: 'SINGLE',
-            paperSize: 'A4',
-            gsm: 70,
-            binding: 'NONE',
-            lamination: false,
-          });
-        } else {
-          toast.error(`Failed to upload ${f.name}`);
-          setIsUploading(false);
-          return;
+    const results = await Promise.all(
+      files.map(async (f) => {
+        try {
+          const res = await fileApi.upload(f.file);
+          if (res.success && res.data) {
+            const fileUrl = `/api/v1/files/${res.data.fileName}`;
+            addItem({
+              id: f.id,
+              fileName: f.name,
+              fileUrl,
+              fileType: f.file.type,
+              pageCount: f.pageCount,
+              copies: 1,
+              colorMode: 'BW',
+              sides: 'SINGLE',
+              paperSize: 'A4',
+              gsm: 70,
+              binding: 'NONE',
+              lamination: false,
+            });
+            return true;
+          }
+          return false;
+        } catch {
+          return false;
         }
-      } catch (e) {
-        toast.error(`Failed to upload ${f.name}`);
-        setIsUploading(false);
-        return;
-      }
+      })
+    );
+
+    const failed = results.filter(r => !r).length;
+    if (failed > 0) {
+      toast.error(`${failed} file(s) failed to upload`);
     }
 
     setIsUploading(false);
-    router.push('/configure');
+    if (results.some(r => r)) {
+      router.push('/configure');
+    }
   };
 
   const formatFileSize = (bytes: number) => {

@@ -64,7 +64,8 @@ public class OrderService {
             walletDiscount = request.getWalletAmountUsed();
         }
 
-        BigDecimal totalAmount = subtotal.subtract(walletDiscount);
+        BigDecimal handlingFee = Boolean.TRUE.equals(request.getEnvelopePackaging()) ? BigDecimal.valueOf(8) : BigDecimal.ZERO;
+        BigDecimal totalAmount = subtotal.subtract(walletDiscount).add(handlingFee);
         if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
             totalAmount = BigDecimal.ZERO;
         }
@@ -74,6 +75,7 @@ public class OrderService {
                 .discount(BigDecimal.ZERO)
                 .tax(BigDecimal.ZERO)
                 .deliveryCharge(BigDecimal.ZERO)
+                .handlingFee(handlingFee)
                 .walletDiscount(walletDiscount)
                 .totalAmount(totalAmount)
                 .couponApplied(couponApplied)
@@ -82,13 +84,22 @@ public class OrderService {
     }
 
     private ItemPriceBreakdown calculateItemPrice(OrderItemSpec item, boolean couponActive) {
-        BigDecimal pricePerPage = couponActive ? BigDecimal.ONE : BigDecimal.valueOf(2);
+        BigDecimal pricePerPage;
+        if ("COLOR".equalsIgnoreCase(item.getColorMode())) {
+            pricePerPage = couponActive ? BigDecimal.valueOf(3) : BigDecimal.valueOf(5);
+        } else {
+            pricePerPage = couponActive ? BigDecimal.ONE : BigDecimal.valueOf(2);
+        }
         int totalPages = item.getPageCount() * item.getCopies();
         BigDecimal printingCost = pricePerPage.multiply(BigDecimal.valueOf(totalPages));
 
         BigDecimal bindingCost = BigDecimal.ZERO;
-        if (item.getBinding() != null && !item.getBinding().equals("NONE")) {
-            bindingCost = BigDecimal.valueOf(30);
+        if (item.getBinding() != null) {
+            switch (item.getBinding()) {
+                case "SPIRAL": bindingCost = BigDecimal.valueOf(45); break;
+                case "SOFT":
+                case "SOFT_BINDING": bindingCost = BigDecimal.valueOf(40); break;
+            }
         }
 
         BigDecimal laminationCost = BigDecimal.ZERO;
@@ -129,10 +140,7 @@ public class OrderService {
         }
 
         Address deliveryAddress = null;
-        if (request.getDeliveryType().equals("DELIVERY")) {
-            if (request.getAddressId() == null) {
-                throw new BadRequestException("Delivery address is required for delivery orders");
-            }
+        if (request.getDeliveryType().equals("DELIVERY") && request.getAddressId() != null) {
             deliveryAddress = addressRepository.findByIdAndUserIdAndDeletedAtIsNull(request.getAddressId(), userId)
                     .orElseThrow(() -> new ResourceNotFoundException("Address", request.getAddressId()));
         }
@@ -183,7 +191,8 @@ public class OrderService {
         BigDecimal walletUsed = request.getWalletAmountUsed() != null ? request.getWalletAmountUsed() : BigDecimal.ZERO;
         order.setWalletAmountUsed(walletUsed);
 
-        BigDecimal total = subtotal.subtract(walletUsed);
+        BigDecimal handlingFee = Boolean.TRUE.equals(request.getEnvelopePackaging()) ? BigDecimal.valueOf(8) : BigDecimal.ZERO;
+        BigDecimal total = subtotal.subtract(walletUsed).add(handlingFee);
         if (total.compareTo(BigDecimal.ZERO) < 0) {
             total = BigDecimal.ZERO;
             order.setWalletAmountUsed(subtotal);
@@ -192,6 +201,7 @@ public class OrderService {
         order.setSubtotal(subtotal);
         order.setDiscount(BigDecimal.ZERO);
         order.setTax(BigDecimal.ZERO);
+        order.setDeliveryCharge(handlingFee);
         order.setTotalAmount(total);
 
         order = orderRepository.save(order);

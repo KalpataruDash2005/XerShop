@@ -144,6 +144,32 @@ public class NotificationService {
         sendWhatsAppToAdmins(order.getOrderNumber(), message.toString());
     }
 
+    public void sendSms(String toNumber, String messageText) {
+        try {
+            if (twilioAccountSid == null || twilioAccountSid.trim().isEmpty()) {
+                String logMsg = "[SMS SIMULATED to " + toNumber + "] " + messageText;
+                System.out.println(logMsg);
+                java.nio.file.Files.writeString(
+                    java.nio.file.Paths.get("sms_notifications.log"),
+                    java.time.LocalDateTime.now() + " " + logMsg + System.lineSeparator(),
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+                return;
+            }
+            com.twilio.Twilio.init(twilioAccountSid, twilioAuthToken);
+            String fromPhone = twilioPhoneFrom.startsWith("+") ? twilioPhoneFrom : "+" + twilioPhoneFrom;
+            String toPhone = toNumber.startsWith("+") ? toNumber : "+" + toNumber;
+            com.twilio.rest.api.v2010.account.Message.creator(
+                    new com.twilio.type.PhoneNumber(toPhone),
+                    new com.twilio.type.PhoneNumber(fromPhone),
+                    messageText
+            ).create();
+            System.out.println("SMS sent to " + toNumber);
+        } catch (Exception e) {
+            System.err.println("Failed to send SMS to " + toNumber + ": " + e.getMessage());
+            System.out.println("[SMS FALLBACK to " + toNumber + "] " + messageText);
+        }
+    }
+
     private void sendWhatsAppToAdmins(String orderNumber, String messageText) {
         String[] numbers = adminWhatsappNumbers.split(",");
         for (String toNumber : numbers) {

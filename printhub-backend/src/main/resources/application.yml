@@ -45,9 +45,7 @@ spring:
       max-request-size: ${MAX_REQUEST_SIZE:100MB}
 
   cache:
-    type: redis
-    redis:
-      time-to-live: 600000
+    type: simple
 
   data:
     redis:
@@ -96,7 +94,7 @@ google:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
-  cors-allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:19006}
+  cors-allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:3001,http://localhost:19006,https://devloperpaglu-xeroxbooking.hf.space}
   admin-whatsapp-numbers: ${ADMIN_WHATSAPP_NUMBERS:+919146922610,+918777815510,+917203971530}
   upload-dir: /app/uploads
 

@@ -18,7 +18,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Install curl for docker-compose healthcheck compatibility
-RUN apk add --no-cache curl
+RUN apk add --no-cache wget ca-certificates && update-ca-certificates
 
 # Create non-root user for security, ensure uploads dir exists
 RUN addgroup -S printhub && adduser -S printhub -G printhub && \

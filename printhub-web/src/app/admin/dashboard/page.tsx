@@ -295,14 +295,21 @@ export default function AdminDashboard() {
               Real-time monitoring of printing queues, payments, and shipments.
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm" 
-            onClick={fetchData}
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh Queue
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/admin/past-orders">
+              <Button variant="outline" className="border-slate-200 bg-white text-slate-700 shadow-sm">
+                Past Orders
+              </Button>
+            </Link>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm" 
+              onClick={fetchData}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh Queue
+            </Button>
+          </div>
         </div>
 
         {/* Stats Grid */}

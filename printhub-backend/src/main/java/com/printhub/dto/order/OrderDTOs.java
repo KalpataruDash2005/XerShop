@@ -113,6 +113,7 @@ public class OrderDTOs {
         private String couponCode;
         private BigDecimal walletAmountUsed;
         private String notes;
+        private Boolean envelopePackaging;
     }
 
     @Data
@@ -173,6 +174,7 @@ public class OrderDTOs {
 
         private String couponCode;
         private BigDecimal walletAmountUsed;
+        private Boolean envelopePackaging;
     }
 
     @Data
@@ -199,6 +201,7 @@ public class OrderDTOs {
         private BigDecimal discount;
         private BigDecimal tax;
         private BigDecimal deliveryCharge;
+        private BigDecimal handlingFee;
         private BigDecimal walletDiscount;
         private BigDecimal totalAmount;
         private String couponApplied;

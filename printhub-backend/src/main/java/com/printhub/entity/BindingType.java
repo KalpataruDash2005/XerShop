@@ -5,5 +5,6 @@ public enum BindingType {
     SPIRAL,
     HARD,
     SOFT,
+    SOFT_BINDING,
     STAPLE
 }

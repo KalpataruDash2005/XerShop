@@ -1,5 +1,6 @@
 package com.printhub.controller;
 
+import com.printhub.dto.admin.AdminDTOs.PastOrderSummary;
 import com.printhub.dto.common.ApiResponse;
 import com.printhub.dto.common.PagedResponse;
 import com.printhub.dto.order.OrderDTOs.OrderDTO;
@@ -78,5 +79,11 @@ public class AdminController {
             @PathVariable Long id,
             @RequestParam(required = false) String reason) {
         return ResponseEntity.ok(ApiResponse.success("Payment rejected", adminService.rejectPayment(id, reason)));
+    }
+
+    @GetMapping("/orders/past")
+    @Operation(summary = "Get completed/delivered orders for accounts")
+    public ResponseEntity<ApiResponse<List<PastOrderSummary>>> getPastOrders() {
+        return ResponseEntity.ok(ApiResponse.success(adminService.getPastOrders()));
     }
 }

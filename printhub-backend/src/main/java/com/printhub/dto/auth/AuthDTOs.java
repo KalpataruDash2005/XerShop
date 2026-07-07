@@ -108,9 +108,27 @@ public class AuthDTOs {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class SendOtpResponse {
+        private String message;
+        private String otp;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class ForgotPasswordRequest {
         @NotBlank(message = "Email or phone is required")
         private String identifier;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ForgotPasswordResponse {
+        private String message;
+        private String otp;
     }
 
     @Data

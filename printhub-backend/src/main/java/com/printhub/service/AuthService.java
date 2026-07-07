@@ -20,7 +20,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final TelegramBotService telegramBotService;
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
@@ -127,6 +131,63 @@ public class AuthService {
                 .expiresIn(jwtService.getAccessTokenExpiration())
                 .user(toUserSummary(user))
                 .build();
+    }
+
+    private final Map<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    private record OtpEntry(String otp, LocalDateTime expiresAt, Long userId) {}
+
+    @Transactional
+    public String forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmailOrPhone(request.getIdentifier())
+                .orElseThrow(() -> new BadRequestException("No account found with that email or phone"));
+
+        String otp = String.format("%06d", secureRandom.nextInt(1000000));
+        otpStore.put(request.getIdentifier(), new OtpEntry(otp, LocalDateTime.now().plusMinutes(5), user.getId()));
+
+        String msg = "Your PrintHub password reset OTP is: " + otp + ". Valid for 5 minutes.";
+        telegramBotService.sendMessage("Forgot Password OTP for " + request.getIdentifier() + ": " + otp);
+
+        return otp;
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        OtpEntry entry = otpStore.get(request.getIdentifier());
+        if (entry == null) throw new BadRequestException("No OTP requested for this identifier");
+        if (LocalDateTime.now().isAfter(entry.expiresAt)) {
+            otpStore.remove(request.getIdentifier());
+            throw new BadRequestException("OTP has expired");
+        }
+        if (!entry.otp.equals(request.getOtp())) throw new BadRequestException("Invalid OTP");
+
+        User user = userRepository.findById(entry.userId).orElseThrow(() -> new BadRequestException("User not found"));
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        otpStore.remove(request.getIdentifier());
+    }
+
+    @Transactional
+    public String sendOtp(SendOtpRequest request) {
+        String otp = String.format("%06d", secureRandom.nextInt(1000000));
+        otpStore.put(request.getIdentifier(), new OtpEntry(otp, LocalDateTime.now().plusMinutes(5), null));
+
+        telegramBotService.sendMessage(request.getPurpose() + " OTP for " + request.getIdentifier() + ": " + otp);
+
+        return otp;
+    }
+
+    @Transactional
+    public void verifyOtp(VerifyOtpRequest request) {
+        OtpEntry entry = otpStore.get(request.getIdentifier());
+        if (entry == null) throw new BadRequestException("No OTP requested for this identifier");
+        if (LocalDateTime.now().isAfter(entry.expiresAt)) {
+            otpStore.remove(request.getIdentifier());
+            throw new BadRequestException("OTP has expired");
+        }
+        if (!entry.otp.equals(request.getOtp())) throw new BadRequestException("Invalid OTP");
+        otpStore.remove(request.getIdentifier());
     }
 
     @Transactional

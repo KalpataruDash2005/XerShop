@@ -40,17 +40,19 @@ INSERT INTO coupons (code, description, type, discount_value, min_order_amount, 
 ('WELCOME20', '20% off on your first order', 'PERCENTAGE', 20.00, 100.00, 100.00, 10000, TRUE, TRUE, NULL, NOW(), DATEADD('YEAR', 1, NOW()), NOW(), NOW()),
 ('FLAT50', 'Flat Rs.50 off on orders above Rs.200', 'FIXED', 50.00, 200.00, 50.00, 5000, TRUE, TRUE, NULL, NOW(), DATEADD('MONTH', 6, NOW()), NOW(), NOW());
 
--- Insert Admin User (password: admin123 - BCrypt hashed)
+-- Insert Admin Users (IDs 1,2,3)
 INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
-('System Admin', 'admin@printhub.com', '+910000000000', '$2a$12$OMEumqN8S9lzLcp5eXbrZe1SYreH3qNw1pFavEfS6HH7M3uJhr.Ka', 'ADMIN', TRUE, NOW(), NOW());
+('Aditya', 'aditya.bajoria0208@gmail.com', '+918777815510', '$2b$12$8mfDp21FM1gpqwt76lyBr.W/edL040EEzoG6F1yJb/j1Bu8iA0Zja', 'ADMIN', TRUE, NOW(), NOW()),
+('Kalpataru', 'kalpataru05aug@gmail.com', '+919146922610', '$2b$12$JBI20mjD.N9OzSaGiHf8wOQVeuTZjPYB3uhbWX4pL68VZVGxtqhLK', 'ADMIN', TRUE, NOW(), NOW()),
+('Jainish', 'jainishbaria42@gmail.com', '+917203971530', '$2b$12$C0qx4mbG9p/F9Doxk9x62uY/JcEokHs80qHjytnEeA7znKw2rSXlm', 'ADMIN', TRUE, NOW(), NOW());
 
--- Insert Demo Shop Owner (password: admin123 - BCrypt hashed)
+-- Insert Demo Shop Owner (ID 4, password: admin123)
 INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
-('Demo Shop', 'shop@demo.com', '+919999999991', '$2a$12$OMEumqN8S9lzLcp5eXbrZe1SYreH3qNw1pFavEfS6HH7M3uJhr.Ka', 'SHOP_OWNER', TRUE, NOW(), NOW());
+('Demo Shop', 'shop@demo.com', '+919999999991', '$2b$12$3OPUFFOxx8Rw7RXmwDsUM.X7ZHJjrag34odutGlpzp5MEp.JbXVha', 'SHOP_OWNER', TRUE, NOW(), NOW());
 
--- Insert Default Shop for the Demo Owner (owner_id = 2, status = APPROVED)
+-- Insert Default Shop for the Demo Owner (owner_id = 4, status = APPROVED)
 INSERT INTO shops (owner_id, name, description, gst_number, phone, email, address, city, state, pincode, latitude, longitude, status, commission_percent, rating_avg, total_reviews, is_accepting_orders, created_at, updated_at) VALUES
-(2, 'Demo Print Shop', 'Default printing shop', '27AAAAA1111A1Z1', '+919999999991', 'shop@demo.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', 19.0760, 72.8777, 'APPROVED', 0.00, 5.00, 1, TRUE, NOW(), NOW());
+(4, 'Demo Print Shop', 'Default printing shop', '27AAAAA1111A1Z1', '+919999999991', 'shop@demo.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', 19.0760, 72.8777, 'APPROVED', 0.00, 5.00, 1, TRUE, NOW(), NOW());
 
 -- Insert Default Printer for Demo Shop
 INSERT INTO printers (shop_id, name, model, type, status, max_paper_size, supports_color, supports_duplex, max_gsm, prints_per_minute, total_prints, created_at, updated_at) VALUES
@@ -60,8 +62,8 @@ INSERT INTO printers (shop_id, name, model, type, status, max_paper_size, suppor
 INSERT INTO pricing_rules (shop_id, paper_size, gsm, color_mode, sides, binding, base_price, price_per_page, price_per_copy, lamination_price, binding_price, min_pages, is_active, created_at, updated_at) VALUES
 (1, 'A4', 75, 'BW', 'SINGLE', 'NONE', 10.00, 2.00, 2.00, 10.00, 0.00, 1, TRUE, NOW(), NOW()),
 (1, 'A4', 75, 'BW', 'DOUBLE', 'NONE', 15.00, 1.50, 1.50, 10.00, 0.00, 1, TRUE, NOW(), NOW()),
-(1, 'A4', 75, 'COLOR', 'SINGLE', 'NONE', 20.00, 10.00, 10.00, 10.00, 0.00, 1, TRUE, NOW(), NOW()),
-(1, 'A4', 75, 'COLOR', 'DOUBLE', 'NONE', 30.00, 8.00, 8.00, 10.00, 0.00, 1, TRUE, NOW(), NOW());
+(1, 'A4', 75, 'COLOR', 'SINGLE', 'NONE', 20.00, 5.00, 5.00, 5.00, 0.00, 1, TRUE, NOW(), NOW()),
+(1, 'A4', 75, 'COLOR', 'DOUBLE', 'NONE', 30.00, 4.00, 4.00, 5.00, 0.00, 1, TRUE, NOW(), NOW());
 
 -- (Demo customer, orders, payments removed)
 
