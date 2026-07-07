@@ -1,30 +1,27 @@
-SET REFERENTIAL_INTEGRITY FALSE;
-
-DELETE FROM users;
-DELETE FROM shops;
+DELETE FROM order_timeline;
+DELETE FROM order_items;
+DELETE FROM payments;
+DELETE FROM wallet_transactions;
+DELETE FROM reviews;
+DELETE FROM employees;
+DELETE FROM notifications;
+DELETE FROM refresh_tokens;
+DELETE FROM referrals;
+DELETE FROM audit_logs;
+DELETE FROM orders;
+DELETE FROM addresses;
 DELETE FROM printers;
 DELETE FROM inventory;
 DELETE FROM pricing_rules;
-DELETE FROM orders;
-DELETE FROM order_items;
-DELETE FROM order_timeline;
-DELETE FROM payments;
-DELETE FROM wallet_transactions;
+DELETE FROM coupons;
 DELETE FROM wallets;
-DELETE FROM reviews;
-DELETE FROM employees;
-DELETE FROM addresses;
-DELETE FROM referrals;
-DELETE FROM audit_logs;
-DELETE FROM refresh_tokens;
-DELETE FROM notifications;
+DELETE FROM shops;
+DELETE FROM users;
 
 ALTER TABLE users ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE shops ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE printers ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE pricing_rules ALTER COLUMN id RESTART WITH 1;
-
-SET REFERENTIAL_INTEGRITY TRUE;
 
 INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
 ('Aditya', 'aditya.bajoria0208@gmail.com', '+918777815510', '$2b$12$UItv8uazESuX8fetBIcU7eUghoS2sUXCLZ1ad8G3Hn3lWRzDQWwEy', 'ADMIN', TRUE, NOW(), NOW()),
