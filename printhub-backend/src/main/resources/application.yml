@@ -65,10 +65,9 @@ jwt:
   access-token-expiration: 900000
   refresh-token-expiration: 604800000
 
-razorpay:
-  key-id: ${RAZORPAY_KEY_ID:}
-  key-secret: ${RAZORPAY_KEY_SECRET:}
-  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+upi:
+  merchant-vpa: ${UPI_MERCHANT_VPA:kailashchoudhary2003@paytm}
+  merchant-name: ${UPI_MERCHANT_NAME:XeroxBooking}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}
