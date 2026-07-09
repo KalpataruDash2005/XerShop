@@ -78,10 +78,10 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
-        <!-- Redis for Caching -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+		<!-- Redis for Caching -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
         <!-- JWT Authentication -->

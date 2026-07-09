@@ -42,15 +42,8 @@ export default function ConfigurePage() {
 
   const PICKUP_ADDRESS = '637, Shyamal County, 390019';
 
-  // QR Modal States
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState<any>(null);
-  const [createdPayment, setCreatedPayment] = useState<any>(null);
-  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
-  const [paymentStatusText, setPaymentStatusText] = useState('');
-  const [utrNumber, setUtrNumber] = useState('');
-  const [screenshotUrl, setScreenshotUrl] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
+  // Razorpay States
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Terms & Conditions
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -249,49 +242,87 @@ export default function ConfigurePage() {
         return;
       }
 
-      // Show the manual UPI QR code payment modal!
-      setCreatedOrder(orderResponse.data);
-      setUtrNumber('');
-      setScreenshotUrl('');
-      setShowQrModal(true);
-      setIsCheckingPayment(false);
-      setPaymentStatusText('');
+      setIsSubmitting(false);
+
+      // Create Razorpay order
+      const paymentOrderResponse = await paymentApi.createOrder({ orderId: orderResponse.data.id });
+      if (!paymentOrderResponse.success || !paymentOrderResponse.data) {
+        toast.error('Failed to initiate payment');
+        return;
+      }
+
+      const rzpData = paymentOrderResponse.data;
+
+      // Load Razorpay checkout script
+      await loadRazorpayScript();
+
+      const options = {
+        key: rzpData.keyId,
+        amount: rzpData.amount,
+        currency: rzpData.currency,
+        name: 'PrintHub',
+        description: `Order #${orderResponse.data.orderNumber}`,
+        order_id: rzpData.razorpayOrderId,
+        handler: async (response: any) => {
+          setIsProcessingPayment(true);
+          try {
+            const verifyResponse = await paymentApi.verify({
+              orderId: orderResponse.data.id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            if (verifyResponse.success) {
+              toast.success('Payment successful! Order confirmed.');
+              clearCart();
+              router.push(`/orders/${orderResponse.data.id}`);
+            } else {
+              toast.error('Payment verification failed');
+              setIsProcessingPayment(false);
+            }
+          } catch {
+            toast.error('Payment verification failed');
+            setIsProcessingPayment(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessingPayment(false);
+            toast.error('Payment cancelled');
+          },
+        },
+        prefill: {
+          contact: useAuthStore.getState().user?.phone || '',
+        },
+        theme: {
+          color: '#2F6FED',
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', (response: any) => {
+        toast.error('Payment failed: ' + (response.error?.description || 'Please try again'));
+        setIsProcessingPayment(false);
+      });
+      rzp.open();
 
     } catch (e: any) {
       toast.error(e.message || 'Something went wrong');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleConfirmPaid = async () => {
-    try {
-      setIsCheckingPayment(true);
-      setPaymentStatusText('Submitting order details...');
-
-      const mockUtr = 'UPI-' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
-
-      const submitPayload = {
-        orderId: createdOrder.id,
-        utr: mockUtr,
-        screenshotPath: '',
-        contactPhone: contactPhone.trim() || undefined,
-      };
-
-      const submitResponse = await paymentApi.submit(submitPayload);
-      if (submitResponse.success) {
-        toast.success('Order placed successfully! Waiting for Admin verification.');
-        clearCart();
-        setShowQrModal(false);
-        router.push(`/orders/${createdOrder.id}`);
-      } else {
-        toast.error(submitResponse.message || 'Failed to place order.');
-        setIsCheckingPayment(false);
+  const loadRazorpayScript = (): Promise<void> => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve();
+        return;
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to submit order.');
-      setIsCheckingPayment(false);
-    }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve();
+      document.body.appendChild(script);
+    });
   };
 
   const totalAmountValue = priceEstimate?.totalAmount || 0;
@@ -713,7 +744,7 @@ export default function ConfigurePage() {
                       }
                       handleCheckout();
                     }}
-                    disabled={isSubmitting || isEstimating || !acceptedTerms}
+                    disabled={isSubmitting || isEstimating || !acceptedTerms || isProcessingPayment}
                     className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-primary to-accent hover:from-primary-600 hover:to-accent-600 shadow-md text-white font-medium"
                   >
                     {isSubmitting ? (
@@ -776,88 +807,19 @@ export default function ConfigurePage() {
         </div>
       )}
 
-      {/* QR Code Scan Modal */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full border border-slate-100 shadow-2xl overflow-hidden relative">
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
-              disabled={isCheckingPayment}
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="p-6 text-center space-y-5">
-              <div>
-                <h3 className="font-heading font-bold text-xl text-secondary">
-                  Scan UPI QR to Pay
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Scan using GPay, PhonePe, Paytm, or any UPI app
-                </p>
-              </div>
-
-              {/* QR Image Box */}
-              <div className="mx-auto w-[240px] h-[380px] bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden shadow-sm">
-                <img
-                  src="/qr_code.jpg"
-                  alt="UPI QR Code"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Amount Label */}
-              <div className="bg-primary-50/50 border border-primary-100 py-2.5 rounded-2xl">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wider">
-                  Amount to Pay
-                </p>
-                <p className="font-heading font-black text-2xl text-primary mt-0.5">
-                  {formatCurrency(totalAmountValue)}
-                </p>
-              </div>
-
-              {!isCheckingPayment && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                    Phone for Verification Call
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="Enter phone number for admin to call"
-                    value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
-                    className="input text-sm py-2 w-full"
-                  />
-                  <p className="text-[10px] text-slate-400">
-                    Admin will call this number to verify your payment
-                  </p>
-                </div>
-              )}
-
-              {isCheckingPayment ? (
-                <div className="border border-slate-100 bg-slate-50 p-4 rounded-2xl flex items-center justify-center gap-3">
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                  <span className="text-sm font-medium text-slate-700 animate-pulse">
-                    {paymentStatusText}
-                  </span>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Button
-                    onClick={handleConfirmPaid}
-                    disabled={!contactPhone.trim()}
-                    className="w-full py-3 bg-gradient-to-r from-primary to-accent hover:from-primary-600 hover:to-accent-600 text-white font-medium text-center flex items-center justify-center gap-2 shadow-md"
-                  >
-                    <ShieldCheck className="w-5 h-5" />
-                    I Have Paid (Verify Payment)
-                  </Button>
-                  <p className="text-[11px] text-slate-500 text-center">
-                    Scan the QR code and pay from any UPI app, then click verify to complete.
-                  </p>
-                </div>
-              )}
+      {/* Razorpay Processing Overlay */}
+      {isProcessingPayment && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
             </div>
+            <h3 className="font-heading font-bold text-lg text-secondary">
+              Verifying Payment
+            </h3>
+            <p className="text-sm text-slate-500">
+              Please wait while we confirm your payment...
+            </p>
           </div>
         </div>
       )}

@@ -24,7 +24,6 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
-    private final BankStatementService bankStatementService;
     private final OrderTimelineRepository timelineRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -61,20 +60,7 @@ public class PaymentService {
         payment.setContactPhone(request.getContactPhone());
         payment.setMethod("UPI_QR");
 
-        // Automatically scan bank statements for deposit matching order amount
-        boolean isCredited = bankStatementService.verifyTransaction(order.getTotalAmount());
-        if (isCredited) {
-            payment.setStatus(PaymentStatus.SUCCESS);
-            order.setStatus(OrderStatus.ACCEPTED);
-            orderRepository.save(order);
-            addTimelineEntry(order, OrderStatus.ACCEPTED, "Payment auto-verified via bank statement");
-            messagingTemplate.convertAndSend("/topic/orders", new OrderStatusUpdateDTO(order.getId(), "ACCEPTED", "Payment auto-verified"));
-            if (order.getWalletAmountUsed() != null && order.getWalletAmountUsed().compareTo(BigDecimal.ZERO) > 0) {
-                deductFromWallet(order.getUser().getId(), order.getWalletAmountUsed(), "Payment for order " + order.getOrderNumber(), order);
-            }
-        } else {
-            payment.setStatus(PaymentStatus.PENDING_VERIFICATION);
-        }
+        payment.setStatus(PaymentStatus.PENDING_VERIFICATION);
 
         payment = paymentRepository.save(payment);
 

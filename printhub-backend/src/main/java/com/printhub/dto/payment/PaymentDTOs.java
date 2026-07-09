@@ -90,6 +90,21 @@ public class PaymentDTOs {
 
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RazorpayOrderResponse {
+        private String id;
+        private String entity;
+        private Long amount;
+        private Long amountPaid;
+        private Long amountDue;
+        private String currency;
+        private String receipt;
+        private String status;
+        private Long createdAt;
+    }
+
+    @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor

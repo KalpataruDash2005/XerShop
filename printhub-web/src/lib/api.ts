@@ -247,6 +247,12 @@ export const fileApi = {
 
 // Payment API
 export const paymentApi = {
+  createOrder: (data: { orderId: number }) =>
+    api.post<ApiResponse<CreatePaymentOrderResponse>>('/payments/create-order', data),
+
+  verify: (data: { orderId: number; razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+    api.post<ApiResponse<void>>('/payments/verify', data),
+
   submit: (data: { orderId: number; utr: string; screenshotPath?: string }) =>
     api.post<ApiResponse<Payment>>('/payments/submit', data),
 };
@@ -484,7 +490,7 @@ export interface Payment {
   contactPhone?: string;
 }
 
-export interface PaymentOrderResponse {
+export interface CreatePaymentOrderResponse {
   orderId: number;
   razorpayOrderId: string;
   amount: number;
