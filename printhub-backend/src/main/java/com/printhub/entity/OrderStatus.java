@@ -1,7 +1,6 @@
 package com.printhub.entity;
 
 public enum OrderStatus {
-    PENDING,
     PLACED,
     ACCEPTED,
     REJECTED,

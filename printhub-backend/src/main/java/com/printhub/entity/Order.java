@@ -40,7 +40,7 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default
-    private OrderStatus status = OrderStatus.PENDING;
+    private OrderStatus status = OrderStatus.PLACED;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "delivery_type", nullable = false)

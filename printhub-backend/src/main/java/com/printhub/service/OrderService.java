@@ -15,8 +15,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,7 +37,6 @@ public class OrderService {
     private final OrderMapper orderMapper;
     private final OrderNumberGenerator orderNumberGenerator;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ObjectMapper objectMapper;
 
     public PriceEstimateResponse calculatePriceEstimate(PriceEstimateRequest request) {
         boolean couponValid = false;
@@ -126,15 +123,10 @@ public class OrderService {
 
     @Transactional
     public OrderDTO createOrder(Long userId, CreateOrderRequest request) {
-        Order order = createOrderEntity(userId, request);
-        return orderMapper.toDTO(order);
-    }
-
-    public Order createOrderEntity(Long userId, CreateOrderRequest request) {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        Long targetShopId = request.getShopId() != null ? request.getShopId() : 1L;
+        Long targetShopId = 1L;
         Shop shop = shopRepository.findByIdAndDeletedAtIsNull(targetShopId)
                 .orElseThrow(() -> new ResourceNotFoundException("Shop", targetShopId));
 
@@ -156,7 +148,7 @@ public class OrderService {
                 .orderNumber(orderNumberGenerator.generate())
                 .user(user)
                 .shop(shop)
-                .status(OrderStatus.PENDING)
+                .status(OrderStatus.PLACED)
                 .deliveryType(DeliveryType.valueOf(request.getDeliveryType()))
                 .deliveryAddress(deliveryAddress)
                 .notes(request.getNotes())
@@ -225,25 +217,9 @@ public class OrderService {
         }
 
         // Add timeline entry
-        addTimelineEntry(order, OrderStatus.PENDING, "Order placed", user);
+        addTimelineEntry(order, OrderStatus.PLACED, "Order placed", user);
 
-        return order;
-    }
-
-    public String serializeOrderRequest(CreateOrderRequest request) {
-        try {
-            return objectMapper.writeValueAsString(request);
-        } catch (JsonProcessingException e) {
-            throw new BadRequestException("Failed to serialize order request");
-        }
-    }
-
-    public CreateOrderRequest deserializeOrderRequest(String json) {
-        try {
-            return objectMapper.readValue(json, CreateOrderRequest.class);
-        } catch (JsonProcessingException e) {
-            throw new BadRequestException("Failed to deserialize order request");
-        }
+        return orderMapper.toDTO(order);
     }
 
     @Transactional(readOnly = true)
@@ -361,7 +337,7 @@ public class OrderService {
 
         // Valid transitions based on business flow
         boolean validTransition = switch (current) {
-            case PENDING, PLACED -> next == OrderStatus.ACCEPTED || next == OrderStatus.REJECTED || next == OrderStatus.CANCELLED;
+            case PLACED -> next == OrderStatus.ACCEPTED || next == OrderStatus.REJECTED || next == OrderStatus.CANCELLED;
             case ACCEPTED -> next == OrderStatus.PRINTING || next == OrderStatus.REJECTED || next == OrderStatus.CANCELLED;
             case PRINTING -> next == OrderStatus.READY;
             case READY -> next == OrderStatus.OUT_FOR_DELIVERY || next == OrderStatus.COMPLETED;

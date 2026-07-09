@@ -33,7 +33,7 @@ public class UpiPaymentService {
             throw new BadRequestException("Access denied");
         }
 
-        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.PLACED) {
+        if (order.getStatus() != OrderStatus.PLACED) {
             throw new BadRequestException("Order is not in a payable state");
         }
 

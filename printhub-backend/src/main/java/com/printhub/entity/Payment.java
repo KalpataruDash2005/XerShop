@@ -8,8 +8,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "payments", indexes = {
     @Index(name = "idx_payments_order", columnList = "order_id"),
-    @Index(name = "idx_payments_status", columnList = "status"),
-    @Index(name = "idx_payments_razorpay_order", columnList = "razorpay_order_id")
+    @Index(name = "idx_payments_status", columnList = "status")
 })
 @Getter
 @Setter
@@ -23,7 +22,7 @@ public class Payment {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", unique = true, nullable = true)
+    @JoinColumn(name = "order_id", unique = true, nullable = false)
     @ToString.Exclude
     private Order order;
 
@@ -62,16 +61,6 @@ public class Payment {
 
     @Column(name = "failure_reason", length = 500)
     private String failureReason;
-
-    @Column(name = "invoice_number", length = 50)
-    private String invoiceNumber;
-
-    @Column(name = "gateway", length = 30)
-    @Builder.Default
-    private String gateway = "RAZORPAY";
-
-    @Column(name = "pre_order_data", columnDefinition = "TEXT")
-    private String preOrderData;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

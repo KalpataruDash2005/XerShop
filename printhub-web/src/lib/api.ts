@@ -251,10 +251,6 @@ export const paymentApi = {
     api.post<ApiResponse<Payment>>('/payments/submit', data),
   getUpiPay: (orderId: number) =>
     api.get<ApiResponse<UpiPayResponse>>('/payments/upi-pay/' + orderId),
-  createOrder: (data: CreatePaymentOrderRequest) =>
-    api.post<ApiResponse<CreatePaymentOrderResponse>>('/payments/create-order', data),
-  verify: (data: VerifyPaymentRequest) =>
-    api.post<ApiResponse<VerifyPaymentResponse>>('/payments/verify', data),
 };
 
 export interface UpiPayResponse {
@@ -264,53 +260,6 @@ export interface UpiPayResponse {
   upiId: string;
   upiDeepLink: string;
   merchantName: string;
-}
-
-export interface CreatePaymentOrderRequest {
-  shopId: number;
-  deliveryType: string;
-  addressId?: number;
-  items: {
-    fileUrl?: string;
-    fileName: string;
-    fileType?: string;
-    pageCount: number;
-    copies: number;
-    colorMode: string;
-    sides: string;
-    paperSize?: string;
-    gsm?: number;
-    binding?: string;
-    lamination?: boolean;
-    pageRange?: string;
-  }[];
-  couponCode?: string;
-  walletAmountUsed?: number;
-  notes?: string;
-  envelopePackaging?: boolean;
-}
-
-export interface CreatePaymentOrderResponse {
-  paymentId: number;
-  razorpayOrderId: string;
-  amount: number;
-  currency: string;
-  keyId: string;
-}
-
-export interface VerifyPaymentRequest {
-  paymentId: number;
-  razorpayOrderId: string;
-  razorpayPaymentId: string;
-  razorpaySignature: string;
-}
-
-export interface VerifyPaymentResponse {
-  paymentId: number;
-  orderId: number;
-  orderNumber: string;
-  status: string;
-  amount: number;
 }
 
 // Admin API
