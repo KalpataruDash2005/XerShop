@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const MAINTENANCE_MODE = false;
+const MAINTENANCE_MODE = true;
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

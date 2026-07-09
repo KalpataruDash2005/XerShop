@@ -78,6 +78,13 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+		<!-- Razorpay Payment Gateway -->
+		<dependency>
+			<groupId>com.razorpay</groupId>
+			<artifactId>razorpay-java</artifactId>
+			<version>1.4.4</version>
+		</dependency>
+
 		<!-- Redis for Caching -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
