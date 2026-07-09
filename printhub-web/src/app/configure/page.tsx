@@ -9,7 +9,7 @@ import { useCartStore, useAuthStore } from '@/store/authStore';
 import { orderApi, paymentApi, userApi, Address } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import toast from 'react-hot-toast';
-import { Trash2, Plus, Minus, FileText, Loader2, CreditCard, Tag, ShoppingBag, MapPin, PlusCircle, Check, X, ShieldCheck } from 'lucide-react';
+import { Trash2, Plus, Minus, FileText, Loader2, CreditCard, Tag, ShoppingBag, MapPin, PlusCircle, Check, X } from 'lucide-react';
 
 export default function ConfigurePage() {
   const router = useRouter();
@@ -42,17 +42,33 @@ export default function ConfigurePage() {
 
   const PICKUP_ADDRESS = '637, Shyamal County, 390019';
 
-  // QR Modal States
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState<any>(null);
-  const [createdPayment, setCreatedPayment] = useState<any>(null);
-  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  // Payment Modal States (Razorpay)
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [razorpayDetails, setRazorpayDetails] = useState<{
+    paymentId: number;
+    razorpayOrderId: string;
+    amount: number;
+    keyId: string;
+    deliveryNotes: string;
+  } | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [paymentStatusText, setPaymentStatusText] = useState('');
-  const [utrNumber, setUtrNumber] = useState('');
-  const [screenshotUrl, setScreenshotUrl] = useState('');
   const [contactPhone, setContactPhone] = useState('');
-  const [upiData, setUpiData] = useState<{ upiId: string; upiDeepLink: string; merchantName: string } | null>(null);
-  const [upiLoading, setUpiLoading] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<{ orderId?: number; orderNumber?: string; status: string } | null>(null);
+
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   // Terms & Conditions
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -197,7 +213,7 @@ export default function ConfigurePage() {
     }
   };
 
-  const handleCheckout = async () => {
+    const handleCheckout = async () => {
     if (!isAuthenticated) {
       toast.error('Please log in to place an order');
       router.push('/login?redirect=/configure');
@@ -222,11 +238,10 @@ export default function ConfigurePage() {
         ? `Self Pickup - ${PICKUP_ADDRESS}`
         : `Parul University (${locationLabel}) - ${roomNumber.trim()}, ${hostelName.trim()}`;
 
-      // Create the order on the backend
       const orderPayload = {
         shopId: 1,
         deliveryType: deliveryType,
-        addressId: undefined, // Using notes-based delivery
+        addressId: undefined,
         notes: deliveryNotes,
         items: items.map(i => ({
           fileName: i.fileName,
@@ -245,66 +260,88 @@ export default function ConfigurePage() {
         envelopePackaging,
       };
 
-      const orderResponse = await orderApi.create(orderPayload);
-      if (!orderResponse.success || !orderResponse.data) {
-        toast.error(orderResponse.message || 'Failed to place order');
+      const paymentResponse = await paymentApi.createOrder(orderPayload);
+      if (!paymentResponse.success || !paymentResponse.data) {
+        toast.error(paymentResponse.message || 'Failed to initiate payment');
         return;
       }
 
-      // Fetch UPI payment details with fixed amount
-      setCreatedOrder(orderResponse.data);
-      setUtrNumber('');
-      setScreenshotUrl('');
-      setShowQrModal(true);
-      setIsCheckingPayment(false);
-      setPaymentStatusText('');
-      setUpiLoading(true);
-      setUpiData(null);
-      try {
-        const upiResponse = await paymentApi.getUpiPay(orderResponse.data.id);
-        if (upiResponse.success && upiResponse.data) {
-          setUpiData(upiResponse.data);
-        }
-      } catch (e) {
-        console.error('Failed to fetch UPI details', e);
-      } finally {
-        setUpiLoading(false);
+      const { paymentId, razorpayOrderId, amount, keyId } = paymentResponse.data;
+      setRazorpayDetails({ paymentId, razorpayOrderId, amount, keyId, deliveryNotes });
+      setContactPhone('');
+      setPaymentResult(null);
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        toast.error('Failed to load payment gateway. Please try again.');
+        return;
       }
+
+      setShowPaymentModal(true);
+      setIsSubmitting(false);
+
+      const options = {
+        key: keyId,
+        amount: Math.round(amount * 100),
+        currency: 'INR',
+        name: 'PrintHub',
+        description: 'Printing Services',
+        order_id: razorpayOrderId,
+        handler: async function(response: any) {
+          setIsVerifying(true);
+          setPaymentStatusText('Verifying payment...');
+          try {
+            const verifyRes = await paymentApi.verify({
+              paymentId,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            if (verifyRes.success && verifyRes.data) {
+              setPaymentResult({ orderId: verifyRes.data.orderId, orderNumber: verifyRes.data.orderNumber, status: 'SUCCESS' });
+              setPaymentStatusText('Payment successful! Creating your order...');
+              clearCart();
+              setTimeout(() => {
+                setShowPaymentModal(false);
+                router.push(`/orders/${verifyRes.data!.orderId}`);
+              }, 1500);
+            } else {
+              setPaymentResult({ status: 'FAILED' });
+              setPaymentStatusText(verifyRes.message || 'Payment verification failed');
+              setIsVerifying(false);
+            }
+          } catch (err: any) {
+            setPaymentResult({ status: 'FAILED' });
+            setPaymentStatusText(err.message || 'Payment verification failed');
+            setIsVerifying(false);
+          }
+        },
+        modal: {
+          ondismiss: function() {
+            setShowPaymentModal(false);
+            setRazorpayDetails(null);
+            toast.error('Payment cancelled. You can try again.');
+          },
+        },
+        prefill: {
+          contact: contactPhone || undefined,
+        },
+        theme: {
+          color: '#6366f1',
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function(response: any) {
+        setPaymentResult({ status: 'FAILED' });
+        setPaymentStatusText('Payment failed: ' + (response.error?.description || 'Unknown error'));
+        setIsVerifying(false);
+      });
+      rzp.open();
 
     } catch (e: any) {
       toast.error(e.message || 'Something went wrong');
-    } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleConfirmPaid = async () => {
-    try {
-      setIsCheckingPayment(true);
-      setPaymentStatusText('Submitting order details...');
-
-      const mockUtr = 'UPI-' + Math.floor(100000000000 + Math.random() * 900000000000).toString();
-
-      const submitPayload = {
-        orderId: createdOrder.id,
-        utr: mockUtr,
-        screenshotPath: '',
-        contactPhone: contactPhone.trim() || undefined,
-      };
-
-      const submitResponse = await paymentApi.submit(submitPayload);
-      if (submitResponse.success) {
-        toast.success('Order placed successfully! Waiting for Admin verification.');
-        clearCart();
-        setShowQrModal(false);
-        router.push(`/orders/${createdOrder.id}`);
-      } else {
-        toast.error(submitResponse.message || 'Failed to place order.');
-        setIsCheckingPayment(false);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to submit order.');
-      setIsCheckingPayment(false);
     }
   };
 
@@ -789,116 +826,85 @@ export default function ConfigurePage() {
           </div>
         </div>
       )}
-
-      {/* QR Code Scan Modal */}
-      {showQrModal && (
+      {/* Razorpay Payment Modal */}
+      {showPaymentModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full border border-slate-100 shadow-2xl overflow-hidden relative">
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
-              disabled={isCheckingPayment}
-            >
-              <X className="w-5 h-5" />
-            </button>
-
             <div className="p-6 text-center space-y-5">
               <div>
                 <h3 className="font-heading font-bold text-xl text-secondary">
-                  Scan UPI QR to Pay
+                  Complete Your Payment
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Scan using GPay, PhonePe, Paytm, or any UPI app
+                  You will be redirected to Razorpay Checkout
                 </p>
               </div>
 
-              {/* Generated QR Code Image — amount is fixed */}
-
-              {upiLoading ? (
-                <div className="mx-auto w-[240px] h-[300px] bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-center">
-                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              {/* Order Summary */}
+              <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 text-left space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Delivery</span>
+                  <span className="font-medium text-slate-800">{razorpayDetails?.deliveryNotes}</span>
                 </div>
-              ) : upiData ? (
-                <>
-                  <div className="mx-auto w-[240px] h-[300px] bg-white rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden shadow-sm">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiData.upiDeepLink)}`}
-                      alt="UPI QR Code"
-                      className="w-full h-full object-contain p-4"
-                    />
-                  </div>
-
-                  {/* Amount Label — fixed, user cannot change */}
-                  <div className="bg-primary-50/50 border border-primary-100 py-2.5 rounded-2xl">
-                    <p className="text-xs font-semibold text-primary uppercase tracking-wider">
-                      Fixed Amount to Pay
-                    </p>
-                    <p className="font-heading font-black text-2xl text-primary mt-0.5">
-                      {formatCurrency(totalAmountValue)}
-                    </p>
-                  </div>
-
-                  {/* Payee info */}
-                  <div className="text-xs text-slate-500 space-y-0.5">
-                    <p>Payee: <span className="font-medium text-slate-700">{upiData.merchantName}</span></p>
-                    <p>UPI ID: <span className="font-medium text-slate-700">{upiData.upiId}</span></p>
-                  </div>
-
-                  {/* Open UPI App button — amount is pre-filled in the deep link */}
-                  <a
-                    href={upiData.upiDeepLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full py-2.5 bg-green-500 hover:bg-green-600 text-white font-medium rounded-2xl text-center shadow-md transition"
-                  >
-                    Pay with UPI App
-                  </a>
-                </>
-              ) : (
-                <div className="mx-auto w-[240px] h-[300px] bg-red-50 rounded-2xl border border-red-200 flex items-center justify-center">
-                  <p className="text-sm text-red-600">Failed to load payment. Please try again.</p>
+                <div className="border-t border-slate-200 pt-2 flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Total Amount</span>
+                  <span className="font-heading font-bold text-xl text-primary">
+                    {razorpayDetails ? formatCurrency(razorpayDetails.amount) : ''}
+                  </span>
                 </div>
-              )}
+              </div>
 
-              {!isCheckingPayment && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                    Phone for Verification Call
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="Enter phone number for admin to call"
-                    value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
-                    className="input text-sm py-2 w-full"
-                  />
-                  <p className="text-[10px] text-slate-400">
-                    Admin will call this number to verify your payment
+              {paymentResult?.status === 'SUCCESS' ? (
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <p className="font-semibold text-green-800">Payment Successful!</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Order #{paymentResult.orderNumber} has been placed.
                   </p>
                 </div>
-              )}
-
-              {isCheckingPayment ? (
+              ) : isVerifying ? (
                 <div className="border border-slate-100 bg-slate-50 p-4 rounded-2xl flex items-center justify-center gap-3">
                   <Loader2 className="w-5 h-5 text-primary animate-spin" />
                   <span className="text-sm font-medium text-slate-700 animate-pulse">
                     {paymentStatusText}
                   </span>
                 </div>
-              ) : (
-                <div className="space-y-3">
+              ) : paymentResult?.status === 'FAILED' ? (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-3">
+                  <p className="font-semibold text-red-700">{paymentStatusText}</p>
                   <Button
-                    onClick={handleConfirmPaid}
-                    disabled={!contactPhone.trim()}
-                    className="w-full py-3 bg-gradient-to-r from-primary to-accent hover:from-primary-600 hover:to-accent-600 text-white font-medium text-center flex items-center justify-center gap-2 shadow-md"
+                    onClick={() => { setShowPaymentModal(false); setRazorpayDetails(null); setPaymentResult(null); }}
+                    className="w-full py-2 bg-primary text-white rounded-2xl"
                   >
-                    <ShieldCheck className="w-5 h-5" />
-                    I Have Paid (Verify Payment)
+                    Try Again
                   </Button>
-                  <p className="text-[11px] text-slate-500 text-center">
-                    Scan the QR code or tap "Pay with UPI App" to pay the exact amount shown above.
-                  </p>
                 </div>
+              ) : (
+                <>
+                  {!contactPhone && (
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+                        Phone Number (Required)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        className="input text-sm py-2 w-full"
+                      />
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400">
+                    Clicking "Pay Now" will open Razorpay Checkout to complete the payment securely.
+                  </p>
+                </>
               )}
             </div>
           </div>

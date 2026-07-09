@@ -2,8 +2,12 @@ package com.printhub.entity;
 
 public enum PaymentStatus {
     CREATED,
-    PENDING_VERIFICATION,
+    PENDING,
+    PROCESSING,
+    PAID,
     SUCCESS,
     FAILED,
-    REFUNDED
+    CANCELLED,
+    REFUNDED,
+    PENDING_VERIFICATION
 }
