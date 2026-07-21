@@ -1,40 +1,52 @@
 -- Seed Data
 -- This runs after V1 which is baselined. Tables already exist via ddl-auto.
--- All inserts use ON CONFLICT to be safe for re-runs.
+-- Uses WHERE NOT EXISTS to handle both email AND phone unique constraints safely.
 
 -- Admin users
-INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
-('Aditya', 'aditya.bajoria0208@gmail.com', '+918777815510', '$2b$12$UItv8uazESuX8fetBIcU7eUghoS2sUXCLZ1ad8G3Hn3lWRzDQWwEy', 'ADMIN', TRUE, NOW(), NOW()),
-('Kalpataru', 'kalpataru05aug@gmail.com', '+919146922610', '$2b$12$.sVy3Ui/j9S8wH32ZXTXoe2/eVA1s3KLdBFW.caYPP4JtS4KRGGka', 'ADMIN', TRUE, NOW(), NOW()),
-('Jainish', 'jainishbaria42@gmail.com', '+917203971530', '$2b$12$SEivV5MEsY/J/Fuu39.fquPRy5wnEK5qliBmhj1.kpo3/SrUMKK9a', 'ADMIN', TRUE, NOW(), NOW())
-ON CONFLICT (email) DO NOTHING;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'aditya.bajoria0208@gmail.com' OR phone = '+918777815510') THEN
+        INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
+        VALUES ('Aditya', 'aditya.bajoria0208@gmail.com', '+918777815510', '$2b$12$UItv8uazESuX8fetBIcU7eUghoS2sUXCLZ1ad8G3Hn3lWRzDQWwEy', 'ADMIN', TRUE, NOW(), NOW());
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'kalpataru05aug@gmail.com' OR phone = '+919146922610') THEN
+        INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
+        VALUES ('Kalpataru', 'kalpataru05aug@gmail.com', '+919146922610', '$2b$12$.sVy3Ui/j9S8wH32ZXTXoe2/eVA1s3KLdBFW.caYPP4JtS4KRGGka', 'ADMIN', TRUE, NOW(), NOW());
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'jainishbaria42@gmail.com' OR phone = '+917203971530') THEN
+        INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
+        VALUES ('Jainish', 'jainishbaria42@gmail.com', '+917203971530', '$2b$12$SEivV5MEsY/J/Fuu39.fquPRy5wnEK5qliBmhj1.kpo3/SrUMKK9a', 'ADMIN', TRUE, NOW(), NOW());
+    END IF;
+END $$;
 
 DO $$
 DECLARE
     shop_owner_id BIGINT;
 BEGIN
-    INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at) VALUES
-    ('Demo Shop', 'shop@demo.com', '+919999999991', '$2b$12$3OPUFFOxx8Rw7RXmwDsUM.X7ZHJjrag34odutGlpzp5MEp.JbXVha', 'SHOP_OWNER', TRUE, NOW(), NOW())
-    ON CONFLICT (email) DO NOTHING
-    RETURNING id INTO shop_owner_id;
-
-    IF shop_owner_id IS NULL THEN
-        SELECT id INTO shop_owner_id FROM users WHERE email = 'shop@demo.com';
+    -- Create or find the demo shop owner
+    IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'shop@demo.com' OR phone = '+919999999991') THEN
+        INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
+        VALUES ('Demo Shop', 'shop@demo.com', '+919999999991', '$2b$12$3OPUFFOxx8Rw7RXmwDsUM.X7ZHJjrag34odutGlpzp5MEp.JbXVha', 'SHOP_OWNER', TRUE, NOW(), NOW())
+        RETURNING id INTO shop_owner_id;
+    ELSE
+        SELECT id INTO shop_owner_id FROM users WHERE email = 'shop@demo.com' OR phone = '+919999999991' LIMIT 1;
     END IF;
 
-    -- Shop
-    INSERT INTO shops (owner_id, name, description, gst_number, phone, email, address, city, state, pincode, latitude, longitude, status, commission_percent, rating_avg, total_reviews, is_accepting_orders, created_at, updated_at)
-    VALUES (shop_owner_id, 'Demo Print Shop', 'Default printing shop', '27AAAAA1111A1Z1', '+919999999991', 'shop@demo.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', 19.0760, 72.8777, 'APPROVED', 0.00, 5.00, 1, TRUE, NOW(), NOW())
-    ON CONFLICT DO NOTHING;
+    -- Create shop if not exists
+    IF NOT EXISTS (SELECT 1 FROM shops WHERE email = 'shop@demo.com' OR phone = '+919999999991') THEN
+        INSERT INTO shops (owner_id, name, description, gst_number, phone, email, address, city, state, pincode, latitude, longitude, status, commission_percent, rating_avg, total_reviews, is_accepting_orders, created_at, updated_at)
+        VALUES (shop_owner_id, 'Demo Print Shop', 'Default printing shop', '27AAAAA1111A1Z1', '+919999999991', 'shop@demo.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', 19.0760, 72.8777, 'APPROVED', 0.00, 5.00, 1, TRUE, NOW(), NOW());
+    END IF;
 
-    -- Printer
-    INSERT INTO printers (shop_id, name, model, type, status, max_paper_size, supports_color, supports_duplex, max_gsm, prints_per_minute, total_prints, created_at, updated_at)
-    SELECT id, 'Primary Laser Printer', 'Canon imageRUNNER 2206', 'LASER', 'ACTIVE', 'A4', TRUE, TRUE, 120, 22, 0, NOW(), NOW()
-    FROM shops WHERE name = 'Demo Print Shop'
-    ON CONFLICT DO NOTHING;
+    -- Create printer if not exists (for the demo shop)
+    IF NOT EXISTS (SELECT 1 FROM printers p JOIN shops s ON p.shop_id = s.id WHERE s.name = 'Demo Print Shop') THEN
+        INSERT INTO printers (shop_id, name, model, type, status, max_paper_size, supports_color, supports_duplex, max_gsm, prints_per_minute, total_prints, created_at, updated_at)
+        SELECT id, 'Primary Laser Printer', 'Canon imageRUNNER 2206', 'LASER', 'ACTIVE', 'A4', TRUE, TRUE, 120, 22, 0, NOW(), NOW()
+        FROM shops WHERE name = 'Demo Print Shop';
+    END IF;
 END $$;
 
--- Pricing rules
+-- Pricing rules (idempotent)
 INSERT INTO pricing_rules (shop_id, paper_size, gsm, color_mode, sides, binding, base_price, price_per_page, price_per_copy, lamination_price, binding_price, min_pages, is_active, created_at, updated_at)
 SELECT s.id, p.* FROM shops s CROSS JOIN (VALUES
     ('A4', 75, 'BW', 'SINGLE', 'NONE', 10.00, 2.00, 2.00, 10.00, 0.00, 1),
