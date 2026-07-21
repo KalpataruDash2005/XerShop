@@ -17,6 +17,12 @@ public class NotificationService {
     @Value("${APP_BASE_URL:}")
     private String baseUrl;
 
+    @Value("${TELEGRAM_BOT_TOKEN:}")
+    private String telegramBotToken;
+
+    @Value("${TELEGRAM_CHAT_ID:}")
+    private String telegramChatId;
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8))
             .build();
@@ -43,10 +49,12 @@ public class NotificationService {
         }
 
         sendNtfy("New Order: " + order.getOrderNumber(), text.toString(), firstFileUrl);
+        sendTelegram(text.toString());
     }
 
     public void sendMessage(String text) {
         sendNtfy("PrintHub Alert", text);
+        sendTelegram(text);
     }
 
     public void sendOrderStatusUpdate(String orderNumber, String status, String customerName) {
@@ -56,6 +64,32 @@ public class NotificationService {
             + "Customer: " + customerName;
 
         sendNtfy("Order " + status, text);
+        sendTelegram(text);
+    }
+
+    private void sendTelegram(String message) {
+        if (telegramBotToken == null || telegramBotToken.isEmpty() || telegramChatId == null || telegramChatId.isEmpty()) {
+            return;
+        }
+        try {
+            String escaped = message.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replaceAll("[\\x00-\\x1f\\x7f]", "");
+            String body = "{\"chat_id\":\"" + telegramChatId + "\",\"text\":\"" + escaped + "\",\"parse_mode\":\"HTML\"}";
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.telegram.org/bot" + telegramBotToken + "/sendMessage"))
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("telegram: " + response.statusCode() + " for notification");
+        } catch (Exception e) {
+            System.out.println("telegram: unavailable (" + e.getClass().getSimpleName() + ")");
+        }
     }
 
     private void sendNtfy(String title, String message) {

@@ -14,6 +14,18 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
 }
 
+const setAuthCookie = () => {
+  if (typeof document !== 'undefined') {
+    document.cookie = 'printhub-auth-token=true; path=/; max-age=604800; SameSite=Lax';
+  }
+};
+
+const clearAuthCookie = () => {
+  if (typeof document !== 'undefined') {
+    document.cookie = 'printhub-auth-token=; path=/; max-age=0; SameSite=Lax';
+  }
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -23,11 +35,12 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
-      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
+      setTokens: (accessToken, refreshToken) => {
+        set({ accessToken, refreshToken });
+        setAuthCookie();
+      },
       logout: () => {
-        if (typeof document !== 'undefined') {
-          document.cookie = 'printhub-auth-token=; path=/; max-age=0; SameSite=Lax';
-        }
+        clearAuthCookie();
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
       },
       setLoading: (loading) => set({ isLoading: loading }),
@@ -40,6 +53,11 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.accessToken) {
+          setAuthCookie();
+        }
+      },
     }
   )
 );

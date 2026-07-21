@@ -38,12 +38,21 @@ public class OrderService {
     private final OrderNumberGenerator orderNumberGenerator;
     private final SimpMessagingTemplate messagingTemplate;
 
+    private boolean isCouponValid(Coupon coupon) {
+        if (coupon == null || !Boolean.TRUE.equals(coupon.getIsActive())) return false;
+        LocalDateTime now = LocalDateTime.now();
+        if (coupon.getValidFrom() != null && now.isBefore(coupon.getValidFrom())) return false;
+        if (coupon.getValidUntil() != null && now.isAfter(coupon.getValidUntil())) return false;
+        if (coupon.getUsageLimit() != null && coupon.getUsedCount() != null && coupon.getUsedCount() >= coupon.getUsageLimit()) return false;
+        return true;
+    }
+
     public PriceEstimateResponse calculatePriceEstimate(PriceEstimateRequest request) {
         boolean couponValid = false;
         String couponApplied = null;
         if (request.getCouponCode() != null) {
             Coupon coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
-            if (coupon != null && coupon.getIsActive()) {
+            if (isCouponValid(coupon)) {
                 couponValid = true;
                 couponApplied = coupon.getCode();
             }
@@ -158,7 +167,7 @@ public class OrderService {
         boolean couponValid = false;
         if (request.getCouponCode() != null) {
             Coupon coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
-            if (coupon != null && Boolean.TRUE.equals(coupon.getIsActive())) {
+            if (isCouponValid(coupon)) {
                 couponValid = true;
                 order.setCoupon(coupon);
             }
@@ -208,6 +217,13 @@ public class OrderService {
         // Save items
         List<OrderItem> savedItems = orderItemRepository.saveAll(items);
         order.setItems(savedItems);
+
+        // Increment coupon usage count
+        if (couponValid && order.getCoupon() != null) {
+            Coupon usedCoupon = order.getCoupon();
+            usedCoupon.setUsedCount(usedCoupon.getUsedCount() + 1);
+            couponRepository.save(usedCoupon);
+        }
 
         // Trigger notification
         try {
