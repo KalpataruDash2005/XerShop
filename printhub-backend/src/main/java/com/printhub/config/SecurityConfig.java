@@ -25,6 +25,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -83,16 +84,19 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @org.springframework.beans.factory.annotation.Value("${app.cors-allowed-origins:http://localhost:3000,http://localhost:3001,http://localhost:19006}")
+    @org.springframework.beans.factory.annotation.Value("${app.cors-allowed-origins:https://*.vercel.app,http://localhost:3000}")
     private String allowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
-            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+            List<String> origins = Arrays.asList(allowedOrigins.split(","));
+            configuration.setAllowedOriginPatterns(origins.stream()
+                .map(String::trim)
+                .collect(Collectors.toList()));
         } else {
-            configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+            configuration.setAllowedOriginPatterns(List.of("http://localhost:3000"));
         }
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
