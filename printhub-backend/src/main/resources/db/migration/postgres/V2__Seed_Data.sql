@@ -41,7 +41,7 @@ BEGIN
     -- Create printer if not exists (for the demo shop)
     IF NOT EXISTS (SELECT 1 FROM printers p JOIN shops s ON p.shop_id = s.id WHERE s.name = 'Demo Print Shop') THEN
         INSERT INTO printers (shop_id, name, model, type, status, max_paper_size, supports_color, supports_duplex, max_gsm, prints_per_minute, total_prints, created_at, updated_at)
-        SELECT id, 'Primary Laser Printer', 'Canon imageRUNNER 2206', 'LASER', 'ACTIVE', 'A4', TRUE, TRUE, 120, 22, 0, NOW(), NOW()
+        SELECT id, 'Primary Laser Printer', 'Canon imageRUNNER 2206', 'LASER_COLOR', 'ACTIVE', 'A4', TRUE, TRUE, 120, 22, 0, NOW(), NOW()
         FROM shops WHERE name = 'Demo Print Shop';
     END IF;
 END $$;
