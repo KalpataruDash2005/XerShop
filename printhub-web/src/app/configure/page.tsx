@@ -641,7 +641,7 @@ export default function ConfigurePage() {
                       onChange={(e) => setEnvelopePackaging(e.target.checked)}
                       className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
                     />
-                    <span>Pack in envelope <span className="text-slate-400">(+Γé╣8)</span></span>
+                    <span>Pack in envelope <span className="text-slate-400">(+₹8)</span></span>
                   </label>
 
                   {/* Coupon Form */}
@@ -685,7 +685,7 @@ export default function ConfigurePage() {
                     {envelopePackaging && (
                       <div className="flex justify-between text-slate-600">
                         <span>Envelope Packaging</span>
-                        <span>Γé╣8.00</span>
+                        <span>₹8.00</span>
                       </div>
                     )}
                     {priceEstimate && priceEstimate.discount > 0 && (

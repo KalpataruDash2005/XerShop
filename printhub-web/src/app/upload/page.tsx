@@ -141,6 +141,7 @@ export default function UploadPage() {
     setIsUploading(true);
     clearCart();
 
+    const errors: string[] = [];
     const results = await Promise.all(
       files.map(async (f) => {
         try {
@@ -164,7 +165,9 @@ export default function UploadPage() {
             return true;
           }
           return false;
-        } catch {
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Unknown error';
+          errors.push(`${f.name}: ${msg}`);
           return false;
         }
       })
@@ -172,7 +175,10 @@ export default function UploadPage() {
 
     const failed = results.filter(r => !r).length;
     if (failed > 0) {
-      toast.error(`${failed} file(s) failed to upload`);
+      toast.error(errors[0]);
+      if (errors.length > 1) {
+        console.error('Upload errors:', errors);
+      }
     }
 
     setIsUploading(false);
