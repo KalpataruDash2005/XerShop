@@ -7,15 +7,15 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'aditya.bajoria0208@gmail.com' OR phone = '+918777815510') THEN
         INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
-        VALUES ('Aditya', 'aditya.bajoria0208@gmail.com', '+918777815510', '$2b$12$UItv8uazESuX8fetBIcU7eUghoS2sUXCLZ1ad8G3Hn3lWRzDQWwEy', 'ADMIN', TRUE, NOW(), NOW());
+        VALUES ('Aditya', 'aditya.bajoria0208@gmail.com', '+918777815510', '$2b$12$sI.SaxwuQsNy5I5uTOdLEeQbpyY8ym0eIgO9sPaDXpS6OLOmn3T8W', 'ADMIN', TRUE, NOW(), NOW());
     END IF;
     IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'kalpataru05aug@gmail.com' OR phone = '+919146922610') THEN
         INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
-        VALUES ('Kalpataru', 'kalpataru05aug@gmail.com', '+919146922610', '$2b$12$.sVy3Ui/j9S8wH32ZXTXoe2/eVA1s3KLdBFW.caYPP4JtS4KRGGka', 'ADMIN', TRUE, NOW(), NOW());
+        VALUES ('Kalpataru', 'kalpataru05aug@gmail.com', '+919146922610', '$2b$12$1TPIq1eLKlyGpu4Y4uMr/eYWvIMyWAsA2c6dUmm77DQhXLTAirNfa', 'ADMIN', TRUE, NOW(), NOW());
     END IF;
     IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'jainishbaria42@gmail.com' OR phone = '+917203971530') THEN
         INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
-        VALUES ('Jainish', 'jainishbaria42@gmail.com', '+917203971530', '$2b$12$SEivV5MEsY/J/Fuu39.fquPRy5wnEK5qliBmhj1.kpo3/SrUMKK9a', 'ADMIN', TRUE, NOW(), NOW());
+        VALUES ('Jainish', 'jainishbaria42@gmail.com', '+917203971530', '$2b$12$i9Teg1733xkznochb/cN7eax1OWZSmFAI8UhBR31ZBnU.dvARv53.', 'ADMIN', TRUE, NOW(), NOW());
     END IF;
 END $$;
 
@@ -26,7 +26,7 @@ BEGIN
     -- Create or find the demo shop owner
     IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'shop@demo.com' OR phone = '+919999999991') THEN
         INSERT INTO users (name, email, phone, password_hash, role, is_verified, created_at, updated_at)
-        VALUES ('Demo Shop', 'shop@demo.com', '+919999999991', '$2b$12$3OPUFFOxx8Rw7RXmwDsUM.X7ZHJjrag34odutGlpzp5MEp.JbXVha', 'SHOP_OWNER', TRUE, NOW(), NOW())
+        VALUES ('Demo Shop', 'shop@demo.com', '+919999999991', '$2b$12$03BVYo27sULDFR.U9Ss3Wez9S66uak.PPRdk7yBwGejCSIKQVdsy6', 'SHOP_OWNER', TRUE, NOW(), NOW())
         RETURNING id INTO shop_owner_id;
     ELSE
         SELECT id INTO shop_owner_id FROM users WHERE email = 'shop@demo.com' OR phone = '+919999999991' LIMIT 1;
