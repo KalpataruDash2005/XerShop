@@ -81,11 +81,11 @@ INSERT INTO categories (name, slug, description, display_order, is_active, creat
 ON CONFLICT DO NOTHING;
 
 -- Coupons
-INSERT INTO coupons (code, description, type, discount_value, min_order_amount, max_discount_amount, usage_limit, is_active, is_platform_wide, shop_id, valid_from, valid_until, created_at, updated_at) VALUES
-('WELCOME20', '20% off on your first order', 'PERCENTAGE', 20.00, 100.00, 100.00, 10000, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '1 year', NOW(), NOW()),
-('FLAT50', 'Flat Rs.50 off on orders above Rs.200', 'FIXED', 50.00, 200.00, 50.00, 5000, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '6 months', NOW(), NOW()),
-('FIRST50', 'Rs.50 off for first-time users (single use)', 'FIXED', 50.00, 100.00, 50.00, 1, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '3 months', NOW(), NOW()),
-('SAVE10', 'Flat 10% off (unlimited use)', 'PERCENTAGE', 10.00, 50.00, 150.00, NULL, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '1 year', NOW(), NOW())
+INSERT INTO coupons (code, description, type, discount_value, min_order_amount, max_discount_amount, usage_limit, is_active, is_platform_wide, shop_id, valid_from, valid_until, used_count, created_at, updated_at) VALUES
+('WELCOME20', '20% off on your first order', 'PERCENTAGE', 20.00, 100.00, 100.00, 10000, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '1 year', 0, NOW(), NOW()),
+('FLAT50', 'Flat Rs.50 off on orders above Rs.200', 'FIXED', 50.00, 200.00, 50.00, 5000, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '6 months', 0, NOW(), NOW()),
+('FIRST50', 'Rs.50 off for first-time users (single use)', 'FIXED', 50.00, 100.00, 50.00, 1, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '3 months', 0, NOW(), NOW()),
+('SAVE10', 'Flat 10% off (unlimited use)', 'PERCENTAGE', 10.00, 50.00, 150.00, NULL, TRUE, TRUE, NULL, NOW(), NOW() + INTERVAL '1 year', 0, NOW(), NOW())
 ON CONFLICT (code) DO NOTHING;
 
 -- Banners
