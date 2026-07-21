@@ -12,6 +12,8 @@ spring:
       max-lifetime: 1200000
 
   jpa:
+    hibernate:
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
