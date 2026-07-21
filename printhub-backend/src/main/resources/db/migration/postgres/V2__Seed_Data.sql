@@ -48,7 +48,7 @@ END $$;
 
 -- Pricing rules (idempotent)
 INSERT INTO pricing_rules (shop_id, paper_size, gsm, color_mode, sides, binding, base_price, price_per_page, price_per_copy, lamination_price, binding_price, min_pages, is_active, created_at, updated_at)
-SELECT s.id, p.* FROM shops s CROSS JOIN (VALUES
+SELECT s.id, p.*, TRUE, NOW(), NOW() FROM shops s CROSS JOIN (VALUES
     ('A4', 75, 'BW', 'SINGLE', 'NONE', 10.00, 2.00, 2.00, 10.00, 0.00, 1),
     ('A4', 75, 'BW', 'DOUBLE', 'NONE', 15.00, 1.50, 1.50, 10.00, 0.00, 1),
     ('A4', 75, 'COLOR', 'SINGLE', 'NONE', 20.00, 5.00, 5.00, 5.00, 0.00, 1),
