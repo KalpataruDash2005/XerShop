@@ -5,3 +5,4 @@ printhub-backend/target/
 printhub-web/.next/
 *.log
 *.tsbuildinfo
+.summary.md
