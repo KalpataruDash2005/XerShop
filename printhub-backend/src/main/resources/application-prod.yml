@@ -1,22 +1,43 @@
 spring:
-  config:
-    activate:
-      on-profile: prod
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
 
   jpa:
-    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: ${SHOW_SQL:false}
 
-logging:
-  level:
-    root: INFO
-    com.printhub: INFO
-    org.hibernate.SQL: WARN
+  flyway:
+    locations: classpath:db/migration/postgres
 
-jwt:
-  access-token-expiration: 900000
-  refresh-token-expiration: 604800000
+  h2:
+    console:
+      enabled: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 5000
+    health:
+      redis:
+        enabled: false
 
 server:
-  error:
-    include-message: never
-    include-binding-errors: never
+  port: ${PORT:8080}
+
+app:
+  frontend-url: ${FRONTEND_URL:https://printhub.vercel.app}
+  cors-allowed-origins: ${CORS_ORIGINS:https://printhub.vercel.app}
+  upload-dir: ${UPLOAD_DIR:/tmp/uploads}

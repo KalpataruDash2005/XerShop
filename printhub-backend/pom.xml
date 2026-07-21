@@ -72,6 +72,13 @@
             <artifactId>HikariCP</artifactId>
         </dependency>
 
+        <!-- PostgreSQL Driver (for production) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Flyway for Database Migrations -->
         <dependency>
             <groupId>org.flywaydb</groupId>
