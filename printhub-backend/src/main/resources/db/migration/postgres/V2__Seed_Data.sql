@@ -57,17 +57,17 @@ SELECT s.id, p.*, TRUE, NOW(), NOW() FROM shops s CROSS JOIN (VALUES
 WHERE s.name = 'Demo Print Shop' AND NOT EXISTS (SELECT 1 FROM pricing_rules pr WHERE pr.shop_id = s.id LIMIT 1);
 
 -- Platform settings
-INSERT INTO platform_settings (setting_key, setting_value, description) VALUES
-('platform_commission_percent', '15.00', 'Default platform commission percentage on orders'),
-('min_order_amount', '10.00', 'Minimum order amount in INR'),
-('delivery_charge_base', '30.00', 'Base delivery charge'),
-('delivery_charge_per_km', '5.00', 'Additional delivery charge per km'),
-('referral_bonus_amount', '50.00', 'Referral bonus amount for both referrer and referred'),
-('gst_percent', '18.00', 'GST percentage for invoices'),
-('order_sla_minutes', '30', 'SLA in minutes for order acceptance'),
-('max_file_size_mb', '50', 'Maximum upload file size in MB'),
-('supported_file_types', 'pdf,doc,docx,ppt,pptx,jpg,jpeg,png,zip', 'Supported file types for upload'),
-('auto_delete_files_days', '7', 'Days after order completion to delete uploaded files')
+INSERT INTO platform_settings (setting_key, setting_value, description, created_at, updated_at) VALUES
+('platform_commission_percent', '15.00', 'Default platform commission percentage on orders', NOW(), NOW()),
+('min_order_amount', '10.00', 'Minimum order amount in INR', NOW(), NOW()),
+('delivery_charge_base', '30.00', 'Base delivery charge', NOW(), NOW()),
+('delivery_charge_per_km', '5.00', 'Additional delivery charge per km', NOW(), NOW()),
+('referral_bonus_amount', '50.00', 'Referral bonus amount for both referrer and referred', NOW(), NOW()),
+('gst_percent', '18.00', 'GST percentage for invoices', NOW(), NOW()),
+('order_sla_minutes', '30', 'SLA in minutes for order acceptance', NOW(), NOW()),
+('max_file_size_mb', '50', 'Maximum upload file size in MB', NOW(), NOW()),
+('supported_file_types', 'pdf,doc,docx,ppt,pptx,jpg,jpeg,png,zip', 'Supported file types for upload', NOW(), NOW()),
+('auto_delete_files_days', '7', 'Days after order completion to delete uploaded files', NOW(), NOW())
 ON CONFLICT (setting_key) DO NOTHING;
 
 -- Categories
