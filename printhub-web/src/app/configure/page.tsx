@@ -836,7 +836,7 @@ export default function ConfigurePage() {
                 <>
                   <div className="mx-auto w-[240px] h-[300px] bg-white rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden shadow-sm">
                     <img
-                      src="/payment-qr-v2.jpg"
+                      src="/qr.png"
                       alt="UPI QR Code"
                       className="w-full h-full object-contain p-4"
                     />
