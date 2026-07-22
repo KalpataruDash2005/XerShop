@@ -11,9 +11,10 @@ import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/li
 import { 
   FileText, Calendar, Store, MapPin, ShoppingBag, 
   ArrowLeft, Clock, CreditCard, ChevronRight, CheckCircle2,
-  Printer, Truck, User, Phone, Check, RefreshCw, X, PhoneCall, ShieldCheck
+  Printer, Truck, User, Phone, Check, RefreshCw, X, PhoneCall, ShieldCheck, Trash2
 } from 'lucide-react';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -41,6 +42,19 @@ export default function OrderDetailPage() {
       console.error('Failed to fetch order details:', e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this order?')) return;
+    try {
+      const res = await orderApi.deleteOrder(order!.id);
+      if (res.success) {
+        toast.success('Order deleted');
+        router.push('/orders');
+      }
+    } catch (err) {
+      toast.error('Failed to delete order');
     }
   };
 
@@ -227,6 +241,14 @@ export default function OrderDetailPage() {
             }
             return null;
           })()}
+
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-2.5 rounded-2xl border border-red-200 hover:border-red-300 transition text-sm font-semibold"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Order
+          </button>
         </div>
 
         {order.paymentStatus === 'PENDING_VERIFICATION' && (

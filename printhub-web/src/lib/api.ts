@@ -213,6 +213,9 @@ export const orderApi = {
 
   reorder: (id: string) =>
     api.post<ApiResponse<Order>>(`/orders/${id}/reorder`),
+
+  deleteOrder: (id: number) =>
+    api.delete<ApiResponse<void>>(`/orders/${id}`),
 };
 
 function getAuthToken(): string | null {
@@ -284,6 +287,9 @@ export const adminApi = {
 
   ping: () =>
     api.get<ApiResponse<string>>('/admin/ping'),
+
+  deleteOrder: (id: number) =>
+    api.delete<ApiResponse<void>>(`/admin/orders/${id}`),
 };
 
 // Types

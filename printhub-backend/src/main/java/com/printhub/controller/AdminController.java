@@ -86,4 +86,11 @@ public class AdminController {
     public ResponseEntity<ApiResponse<List<PastOrderSummary>>> getPastOrders() {
         return ResponseEntity.ok(ApiResponse.success(adminService.getPastOrders()));
     }
+
+    @DeleteMapping("/orders/{id}")
+    @Operation(summary = "Admin delete an order (soft delete)")
+    public ResponseEntity<ApiResponse<Void>> deleteOrder(@PathVariable Long id) {
+        orderService.adminDeleteOrder(id);
+        return ResponseEntity.ok(ApiResponse.success("Order deleted by admin"));
+    }
 }

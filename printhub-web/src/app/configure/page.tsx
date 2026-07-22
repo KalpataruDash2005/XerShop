@@ -836,7 +836,7 @@ export default function ConfigurePage() {
                 <>
                   <div className="mx-auto w-[240px] h-[300px] bg-white rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden shadow-sm">
                     <img
-                      src="https://raw.githubusercontent.com/KalpataruDash2005/XerShop/main/printhub-web/public/merchant-qr.png"
+                      src="/merchant-qr.png"
                       alt="UPI QR Code"
                       className="w-full h-full object-contain p-4"
                     />

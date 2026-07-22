@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, FileText, Calendar, Store, ArrowRight, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, FileText, Calendar, Store, ArrowRight, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function OrdersPage() {
@@ -50,6 +50,21 @@ export default function OrdersPage() {
       setFetchError(true);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (orderId: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this order?')) return;
+    try {
+      const res = await orderApi.deleteOrder(orderId);
+      if (res.success) {
+        toast.success('Order deleted');
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+      }
+    } catch (err) {
+      toast.error('Failed to delete order');
     }
   };
 
@@ -164,6 +179,13 @@ export default function OrdersPage() {
                               {formatCurrency(order.totalAmount)}
                             </p>
                           </div>
+                          <button
+                            onClick={(e) => handleDelete(order.id, e)}
+                            className="p-2 rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 transition"
+                            title="Delete order"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                           <ArrowRight className="w-5 h-5 text-slate-400" />
                         </div>
                       </div>

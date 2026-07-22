@@ -259,6 +259,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAdminDelete = async (orderId: number) => {
+    if (!confirm('Delete this order permanently?')) return;
+    try {
+      const res = await adminApi.deleteOrder(orderId);
+      if (res.success) {
+        toast.success('Order deleted');
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete order');
+    }
+  };
+
   // Status mapping to display label and color classes
   const getStatusDetails = (status: string) => {
     switch (status) {
@@ -641,6 +654,12 @@ export default function AdminDashboard() {
                                   <CheckCircle className="w-4 h-4" />
                                   Mark as Delivered
                                 </Button>
+                                <button
+                                  onClick={() => handleAdminDelete(order.id)}
+                                  className="w-full text-xs font-bold py-2.5 border-red-300 text-red-700 hover:bg-red-50 rounded-2xl flex items-center justify-center gap-1.5 border"
+                                >
+                                  Delete Order
+                                </button>
                               </>
                             )}
                           </div>

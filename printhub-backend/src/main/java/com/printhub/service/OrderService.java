@@ -469,4 +469,32 @@ public class OrderService {
         // For reorder, we use the same files from the original order
         // In production, we might want to copy/validate files still exist
     }
+
+    @Transactional
+    public void deleteOrder(Long orderId, Long requesterId) {
+        Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        User requester = userRepository.findByIdAndDeletedAtIsNull(requesterId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", requesterId));
+
+        boolean isOwner = order.getUser().getId().equals(requesterId);
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+
+        if (!isOwner && !isAdmin) {
+            throw new ForbiddenException("Access denied");
+        }
+
+        order.setDeletedAt(LocalDateTime.now());
+        orderRepository.save(order);
+    }
+
+    @Transactional
+    public void adminDeleteOrder(Long orderId) {
+        Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
+
+        order.setDeletedAt(LocalDateTime.now());
+        orderRepository.save(order);
+    }
 }

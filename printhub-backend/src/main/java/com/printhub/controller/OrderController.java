@@ -108,6 +108,16 @@ public class OrderController {
         return ResponseEntity.notFound().build();
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete an order (soft delete)")
+    public ResponseEntity<ApiResponse<Void>> deleteOrder(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id) {
+        Long userId = getUserIdFromDetails(userDetails);
+        orderService.deleteOrder(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("Order deleted"));
+    }
+
     private Long getUserIdFromDetails(UserDetails userDetails) {
         return jwtUtil.extractUserId(userDetails);
     }
