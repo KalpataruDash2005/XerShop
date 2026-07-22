@@ -47,24 +47,44 @@ public class OrderService {
         return true;
     }
 
+    private BigDecimal calculateCouponDiscount(BigDecimal subtotal, Coupon coupon) {
+        if (coupon == null) return BigDecimal.ZERO;
+        if (coupon.getMinOrderAmount() != null && subtotal.compareTo(coupon.getMinOrderAmount()) < 0) return BigDecimal.ZERO;
+        BigDecimal discount;
+        if (coupon.getType() == CouponType.PERCENTAGE) {
+            discount = subtotal.multiply(coupon.getValue()).divide(BigDecimal.valueOf(100));
+        } else {
+            discount = coupon.getValue();
+        }
+        if (coupon.getMaxDiscountAmount() != null && discount.compareTo(coupon.getMaxDiscountAmount()) > 0) {
+            discount = coupon.getMaxDiscountAmount();
+        }
+        if (discount.compareTo(subtotal) > 0) discount = subtotal;
+        return discount;
+    }
+
     public PriceEstimateResponse calculatePriceEstimate(PriceEstimateRequest request) {
-        boolean couponValid = false;
-        String couponApplied = null;
+        Coupon coupon = null;
         if (request.getCouponCode() != null) {
-            Coupon coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
-            if (isCouponValid(coupon)) {
-                couponValid = true;
-                couponApplied = coupon.getCode();
-            }
+            coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
         }
 
         BigDecimal subtotal = BigDecimal.ZERO;
         List<ItemPriceBreakdown> breakdowns = new java.util.ArrayList<>();
 
         for (OrderItemSpec item : request.getItems()) {
-            ItemPriceBreakdown breakdown = calculateItemPrice(item, couponValid);
+            ItemPriceBreakdown breakdown = calculateItemPrice(item);
             breakdowns.add(breakdown);
             subtotal = subtotal.add(breakdown.getLineTotal());
+        }
+
+        BigDecimal couponDiscount = BigDecimal.ZERO;
+        String couponApplied = null;
+        if (isCouponValid(coupon)) {
+            couponDiscount = calculateCouponDiscount(subtotal, coupon);
+            if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                couponApplied = coupon.getCode();
+            }
         }
 
         BigDecimal walletDiscount = BigDecimal.ZERO;
@@ -73,30 +93,31 @@ public class OrderService {
         }
 
         BigDecimal handlingFee = Boolean.TRUE.equals(request.getEnvelopePackaging()) ? BigDecimal.valueOf(8) : BigDecimal.ZERO;
-        BigDecimal totalAmount = subtotal.subtract(walletDiscount).add(handlingFee);
+        BigDecimal totalAmount = subtotal.subtract(couponDiscount).subtract(walletDiscount).add(handlingFee);
         if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
             totalAmount = BigDecimal.ZERO;
         }
 
         return PriceEstimateResponse.builder()
                 .subtotal(subtotal)
-                .discount(BigDecimal.ZERO)
+                .discount(couponDiscount)
                 .tax(BigDecimal.ZERO)
                 .deliveryCharge(BigDecimal.ZERO)
                 .handlingFee(handlingFee)
                 .walletDiscount(walletDiscount)
                 .totalAmount(totalAmount)
                 .couponApplied(couponApplied)
+                .couponDiscount(couponDiscount)
                 .itemBreakdowns(breakdowns)
                 .build();
     }
 
-    private ItemPriceBreakdown calculateItemPrice(OrderItemSpec item, boolean couponActive) {
+    private ItemPriceBreakdown calculateItemPrice(OrderItemSpec item) {
         BigDecimal pricePerPage;
         if ("COLOR".equalsIgnoreCase(item.getColorMode())) {
-            pricePerPage = couponActive ? BigDecimal.valueOf(3) : BigDecimal.valueOf(5);
+            pricePerPage = BigDecimal.valueOf(5);
         } else {
-            pricePerPage = couponActive ? BigDecimal.ONE : BigDecimal.valueOf(2);
+            pricePerPage = BigDecimal.valueOf(2);
         }
         int totalPages = item.getPageCount() * item.getCopies();
         BigDecimal printingCost = pricePerPage.multiply(BigDecimal.valueOf(totalPages));
@@ -163,18 +184,13 @@ public class OrderService {
                 .notes(request.getNotes())
                 .build();
 
-        // Calculate pricing with flat rate
-        boolean couponValid = false;
+        // Calculate pricing with coupon discount
+        Coupon coupon = null;
         if (request.getCouponCode() != null) {
-            Coupon coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
-            if (isCouponValid(coupon)) {
-                couponValid = true;
-                order.setCoupon(coupon);
-            }
+            coupon = couponRepository.findByCodeAndDeletedAtIsNull(request.getCouponCode()).orElse(null);
         }
 
         Order finalOrder = order;
-        final boolean finalCouponValid = couponValid;
         List<OrderItem> items = request.getItems().stream()
                 .map(itemRequest -> {
                     OrderItem item = orderMapper.toEntity(itemRequest);
@@ -183,7 +199,7 @@ public class OrderService {
                             item.getPageCount(), item.getCopies(), item.getColorMode().name(),
                             item.getSides().name(), item.getPaperSize(), item.getGsm(),
                             item.getBinding() != null ? item.getBinding().name() : null, item.getLamination()
-                    ), finalCouponValid);
+                    ));
                     item.setLineTotal(breakdown.getLineTotal());
                     return item;
                 })
@@ -196,18 +212,28 @@ public class OrderService {
                 .map(OrderItem::getLineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal couponDiscount = BigDecimal.ZERO;
+        boolean couponValid = false;
+        if (isCouponValid(coupon)) {
+            couponDiscount = calculateCouponDiscount(subtotal, coupon);
+            if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                couponValid = true;
+                order.setCoupon(coupon);
+            }
+        }
+
         BigDecimal walletUsed = request.getWalletAmountUsed() != null ? request.getWalletAmountUsed() : BigDecimal.ZERO;
         order.setWalletAmountUsed(walletUsed);
 
         BigDecimal handlingFee = Boolean.TRUE.equals(request.getEnvelopePackaging()) ? BigDecimal.valueOf(8) : BigDecimal.ZERO;
-        BigDecimal total = subtotal.subtract(walletUsed).add(handlingFee);
+        BigDecimal total = subtotal.subtract(couponDiscount).subtract(walletUsed).add(handlingFee);
         if (total.compareTo(BigDecimal.ZERO) < 0) {
             total = BigDecimal.ZERO;
             order.setWalletAmountUsed(subtotal);
         }
 
         order.setSubtotal(subtotal);
-        order.setDiscount(BigDecimal.ZERO);
+        order.setDiscount(couponDiscount);
         order.setTax(BigDecimal.ZERO);
         order.setDeliveryCharge(handlingFee);
         order.setTotalAmount(total);

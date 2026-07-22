@@ -1,7 +1,7 @@
 /** PrintHub API Client */
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://xershop-production.up.railway.app/api/v1';
 
 class ApiClient {
   private client: AxiosInstance;
