@@ -157,7 +157,8 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         Shop shop = shopRepository.findByIdAndDeletedAtIsNull(request.getShopId())
-                .orElseThrow(() -> new ResourceNotFoundException("Shop", request.getShopId()));
+                .orElseGet(() -> shopRepository.findByStatusAndDeletedAtIsNull(ShopStatus.APPROVED).stream().findFirst()
+                        .orElseThrow(() -> new ResourceNotFoundException("Shop", request.getShopId())));
 
         if (shop.getStatus() != ShopStatus.APPROVED) {
             throw new BadRequestException("Shop is not accepting orders");
