@@ -75,7 +75,7 @@ export default function ConfigurePage() {
     (async () => {
       try {
         const res = await shopApi.getAll();
-        if (res.success && (res.data?.content?.length ?? 0) > 0) {
+        if (res.success && res.data?.content?.length) {
           setShopId(res.data.content[0].id);
         }
       } catch { /* use fallback */
