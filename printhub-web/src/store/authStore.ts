@@ -36,7 +36,11 @@ export const useAuthStore = create<AuthState>()(
       isLoading: true,
       setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
       setTokens: (accessToken, refreshToken) => {
-        set({ accessToken, refreshToken });
+        set({ accessToken, refreshToken, isAuthenticated: true, isLoading: false });
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('accessToken', accessToken);
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+        }
         setAuthCookie();
       },
       logout: () => {
@@ -61,6 +65,9 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Rehydration is synchronous (localStorage), so this runs after store is ready
+useAuthStore.setState({ isLoading: false });
 
 // Cart Store
 interface CartItem {
