@@ -23,6 +23,14 @@ public class ApiResponse<T> {
                 .build();
     }
 
+    public static ApiResponse<Void> success(String message) {
+        return ApiResponse.<Void>builder()
+                .success(true)
+                .message(message)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
     public static <T> ApiResponse<T> success(String message, T data) {
         return ApiResponse.<T>builder()
                 .success(true)
