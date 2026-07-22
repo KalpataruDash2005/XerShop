@@ -6,3 +6,6 @@ printhub-web/.next/
 *.log
 *.tsbuildinfo
 .summary.md
+
+printhub-backend/mvn_err.txt
+printhub-backend/mvn_out.txt
