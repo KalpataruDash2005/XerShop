@@ -156,9 +156,8 @@ public class OrderService {
         User user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        Long targetShopId = 1L;
-        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(targetShopId)
-                .orElseThrow(() -> new ResourceNotFoundException("Shop", targetShopId));
+        Shop shop = shopRepository.findByIdAndDeletedAtIsNull(request.getShopId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shop", request.getShopId()));
 
         if (shop.getStatus() != ShopStatus.APPROVED) {
             throw new BadRequestException("Shop is not accepting orders");
