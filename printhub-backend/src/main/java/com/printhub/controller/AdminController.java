@@ -47,7 +47,7 @@ public class AdminController {
     @GetMapping("/ping")
     @Operation(summary = "Ping test")
     public ResponseEntity<ApiResponse<String>> ping() {
-        return ResponseEntity.ok(ApiResponse.success("pong"));
+        return ResponseEntity.ok(ApiResponse.<String>success("pong"));
     }
 
     @PutMapping("/orders/{id}/status")
