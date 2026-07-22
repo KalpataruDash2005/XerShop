@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
 import { useCartStore, useAuthStore } from '@/store/authStore';
-import { orderApi, paymentApi, userApi, Address } from '@/lib/api';
+import { orderApi, paymentApi, userApi, shopApi, Address } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import toast from 'react-hot-toast';
 import { Trash2, Plus, Minus, FileText, Loader2, CreditCard, Tag, ShoppingBag, MapPin, PlusCircle, Check, X, ShieldCheck } from 'lucide-react';
@@ -68,6 +68,20 @@ export default function ConfigurePage() {
 
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [envelopePackaging, setEnvelopePackaging] = useState(false);
+  const [shopId, setShopId] = useState<number>(1);
+
+  // Fetch the default shop ID on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await shopApi.getAll();
+        if (res.success && res.data?.content?.length > 0) {
+          setShopId(res.data.content[0].id);
+        }
+      } catch { /* use fallback */
+      }
+    })();
+  }, []);
 
   // Calculate pricing whenever cart items or delivery type changes
   useEffect(() => {
@@ -76,7 +90,7 @@ export default function ConfigurePage() {
       return;
     }
     fetchPriceEstimate();
-  }, [items, deliveryType, selectedAddressId, envelopePackaging]);
+  }, [items, deliveryType, selectedAddressId, envelopePackaging, shopId]);
 
   // Fetch user addresses on load
   useEffect(() => {
@@ -146,7 +160,7 @@ export default function ConfigurePage() {
     try {
       setIsEstimating(true);
       const payload = {
-        shopId: 1, // Default shop
+        shopId,
         items: items.map(i => ({
           pageCount: i.pageCount,
           copies: i.copies,
@@ -224,7 +238,7 @@ export default function ConfigurePage() {
 
       // Create the order on the backend
       const orderPayload = {
-        shopId: 1,
+        shopId,
         deliveryType: deliveryType,
         addressId: undefined, // Using notes-based delivery
         notes: deliveryNotes,

@@ -178,6 +178,9 @@ export const userApi = {
 
 // Shop API
 export const shopApi = {
+  getAll: (page = 0, size = 20) =>
+    api.get<ApiResponse<PagedResponse<Shop>>>(`/shops?page=${page}&size=${size}`),
+
   getNearby: (lat: number, lng: number, radius = 10, limit = 20) =>
     api.get<ApiResponse<Shop[]>>(`/shops/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}`),
 
