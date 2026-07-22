@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import { Loader2, FileText, RefreshCw, Download, Printer, DollarSign, User, Hash } from 'lucide-react';
 import Link from 'next/link';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://xershop-production.up.railway.app/api/v1';
 
 interface PastOrder {
   orderId: number;
