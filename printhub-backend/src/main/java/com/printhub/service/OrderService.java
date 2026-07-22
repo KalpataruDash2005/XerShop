@@ -80,10 +80,31 @@ public class OrderService {
 
         BigDecimal couponDiscount = BigDecimal.ZERO;
         String couponApplied = null;
-        if (isCouponValid(coupon)) {
-            couponDiscount = calculateCouponDiscount(subtotal, coupon);
-            if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
-                couponApplied = coupon.getCode();
+        String couponMessage = null;
+        if (request.getCouponCode() != null) {
+            if (coupon == null) {
+                couponMessage = "Invalid coupon code";
+            } else if (!isCouponValid(coupon)) {
+                if (!Boolean.TRUE.equals(coupon.getIsActive())) {
+                    couponMessage = "Coupon is not active";
+                } else if (coupon.getValidFrom() != null && LocalDateTime.now().isBefore(coupon.getValidFrom())) {
+                    couponMessage = "Coupon is not yet valid";
+                } else if (coupon.getValidUntil() != null && LocalDateTime.now().isAfter(coupon.getValidUntil())) {
+                    couponMessage = "Coupon has expired";
+                } else if (coupon.getUsageLimit() != null && coupon.getUsedCount() != null && coupon.getUsedCount() >= coupon.getUsageLimit()) {
+                    couponMessage = "Coupon usage limit reached";
+                } else {
+                    couponMessage = "Coupon is not applicable";
+                }
+            } else {
+                couponDiscount = calculateCouponDiscount(subtotal, coupon);
+                if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                    couponApplied = coupon.getCode();
+                } else if (coupon.getMinOrderAmount() != null) {
+                    couponMessage = "Minimum order amount of " + coupon.getMinOrderAmount() + " not met";
+                } else {
+                    couponMessage = "Coupon is not applicable for this order";
+                }
             }
         }
 
@@ -108,6 +129,7 @@ public class OrderService {
                 .totalAmount(totalAmount)
                 .couponApplied(couponApplied)
                 .couponDiscount(couponDiscount)
+                .couponMessage(couponMessage)
                 .itemBreakdowns(breakdowns)
                 .build();
     }

@@ -156,7 +156,7 @@ export default function ConfigurePage() {
     }
   };
 
-  const fetchPriceEstimate = async (): Promise<{ couponApplied: string | null } | null> => {
+  const fetchPriceEstimate = async (): Promise<{ couponApplied: string | null; couponMessage?: string } | null> => {
     try {
       setIsEstimating(true);
       const payload = {
@@ -186,7 +186,7 @@ export default function ConfigurePage() {
         });
         const applied = response.data.couponApplied || null;
         setAppliedCoupon(applied);
-        return { couponApplied: applied };
+        return { couponApplied: applied, couponMessage: response.data.couponMessage };
       }
       return null;
     } catch (e) {
@@ -206,6 +206,8 @@ export default function ConfigurePage() {
     const result = await fetchPriceEstimate();
     if (result?.couponApplied) {
       toast.success(`Coupon "${result.couponApplied}" applied!`);
+    } else if (result?.couponMessage) {
+      toast.error(result.couponMessage);
     } else {
       toast.error('Invalid or expired coupon code');
     }

@@ -206,6 +206,7 @@ public class OrderDTOs {
         private BigDecimal totalAmount;
         private String couponApplied;
         private BigDecimal couponDiscount;
+        private String couponMessage;
         private List<ItemPriceBreakdown> itemBreakdowns;
     }
 

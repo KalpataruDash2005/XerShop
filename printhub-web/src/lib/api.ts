@@ -451,6 +451,7 @@ export interface PriceEstimateResponse {
   totalAmount: number;
   couponApplied?: string;
   couponDiscount?: number;
+  couponMessage?: string;
   itemBreakdowns: {
     pageCount: number;
     copies: number;
