@@ -91,6 +91,6 @@ public class AdminController {
     @Operation(summary = "Admin delete an order (soft delete)")
     public ResponseEntity<ApiResponse<Void>> deleteOrder(@PathVariable Long id) {
         orderService.adminDeleteOrder(id);
-        return ResponseEntity.ok(ApiResponse.success("Order deleted by admin"));
+        return ResponseEntity.ok(ApiResponse.success("Order deleted by admin", null));
     }
 }
