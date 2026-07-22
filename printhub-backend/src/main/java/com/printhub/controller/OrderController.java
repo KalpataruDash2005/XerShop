@@ -115,7 +115,7 @@ public class OrderController {
             @PathVariable Long id) {
         Long userId = getUserIdFromDetails(userDetails);
         orderService.deleteOrder(id, userId);
-        return ResponseEntity.ok(ApiResponse.success("Order deleted"));
+        return ResponseEntity.ok(ApiResponse.success("Order deleted", null));
     }
 
     private Long getUserIdFromDetails(UserDetails userDetails) {
