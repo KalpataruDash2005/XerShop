@@ -1,115 +1,10 @@
-/** PrintHub API Client */
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import { useAuthStore } from '@/store/authStore';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://xershop-production.up.railway.app/api/v1';
 
-class ApiClient {
-  private client: AxiosInstance;
+// ─── Base Types ──────────────────────────────────────────────────────────────
 
-  constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    this.client.interceptors.request.use(
-      (config) => {
-        const token = this.getToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          this.clearToken();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
-        }
-        return Promise.reject(error);
-      }
-    );
-  }
-
-  private getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    try {
-      const authData = localStorage.getItem('printhub-auth');
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        return parsed.state?.accessToken || null;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return localStorage.getItem('accessToken');
-  }
-
-  private clearToken(): void {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('printhub-auth');
-    document.cookie = 'printhub-auth-token=; path=/; max-age=0; SameSite=Lax';
-  }
-
-  setToken(accessToken: string, refreshToken?: string): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('accessToken', accessToken);
-    if (refreshToken) {
-      localStorage.setItem('refreshToken', refreshToken);
-    }
-    try {
-      const authData = localStorage.getItem('printhub-auth');
-      const parsed = authData ? JSON.parse(authData) : { state: {} };
-      parsed.state.accessToken = accessToken;
-      if (refreshToken) {
-        parsed.state.refreshToken = refreshToken;
-      }
-      parsed.state.isAuthenticated = true;
-      localStorage.setItem('printhub-auth', JSON.stringify(parsed));
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async get<T>(url: string, config?: AxiosRequestConfig) {
-    const response = await this.client.get<T>(url, config);
-    return response.data;
-  }
-
-  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
-    const response = await this.client.post<T>(url, data, config);
-    return response.data;
-  }
-
-  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
-    const response = await this.client.put<T>(url, data, config);
-    return response.data;
-  }
-
-  async patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
-    const response = await this.client.patch<T>(url, data, config);
-    return response.data;
-  }
-
-  async delete<T>(url: string, config?: AxiosRequestConfig) {
-    const response = await this.client.delete<T>(url, config);
-    return response.data;
-  }
-}
-
-export const api = new ApiClient();
-
-// Types
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;
@@ -128,171 +23,8 @@ export interface PagedResponse<T> {
   empty: boolean;
 }
 
-// Auth API
-export const authApi = {
-  register: (data: { name: string; email?: string; phone: string; password: string; referralCode?: string }) =>
-    api.post<ApiResponse<{ accessToken: string; refreshToken: string; user: User }>>('/auth/register', data),
+// ─── Domain Types ────────────────────────────────────────────────────────────
 
-  login: (data: { identifier: string; password: string }) =>
-    api.post<ApiResponse<{ accessToken: string; refreshToken: string; user: User }>>('/auth/login', data),
-
-  refreshToken: (data: { refreshToken: string }) =>
-    api.post<ApiResponse<{ accessToken: string; refreshToken: string }>>('/auth/refresh', data),
-
-  logout: () =>
-    api.post<ApiResponse<void>>('/auth/logout'),
-
-  forgotPassword: (identifier: string) =>
-    api.post<ApiResponse<void>>('/auth/forgot-password', { identifier }),
-
-  resetPassword: (identifier: string, otp: string, newPassword: string) =>
-    api.post<ApiResponse<void>>('/auth/reset-password', { identifier, otp, newPassword }),
-
-  sendOtp: (identifier: string, purpose: string) =>
-    api.post<ApiResponse<{ message: string; otp: string }>>('/auth/otp/send', { identifier, purpose }),
-
-  verifyOtp: (identifier: string, otp: string, purpose: string) =>
-    api.post<ApiResponse<void>>('/auth/otp/verify', { identifier, otp, purpose }),
-};
-
-// User API
-export const userApi = {
-  getMe: () =>
-    api.get<ApiResponse<User>>('/users/me'),
-
-  updateProfile: (data: { name?: string; email?: string }) =>
-    api.put<ApiResponse<User>>('/users/me', data),
-
-  getAddresses: () =>
-    api.get<ApiResponse<Address[]>>('/users/me/addresses'),
-
-  addAddress: (data: Omit<Address, 'id' | 'createdAt'>) =>
-    api.post<ApiResponse<Address>>('/users/me/addresses', data),
-
-  updateAddress: (id: string, data: Partial<Address>) =>
-    api.put<ApiResponse<Address>>(`/users/me/addresses/${id}`, data),
-
-  deleteAddress: (id: string) =>
-    api.delete<ApiResponse<void>>(`/users/me/addresses/${id}`),
-};
-
-// Shop API
-export const shopApi = {
-  getAll: (page = 0, size = 20) =>
-    api.get<ApiResponse<PagedResponse<Shop>>>(`/shops?page=${page}&size=${size}`),
-
-  getNearby: (lat: number, lng: number, radius = 10, limit = 20) =>
-    api.get<ApiResponse<Shop[]>>(`/shops/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}`),
-
-  getById: (id: string) =>
-    api.get<ApiResponse<Shop>>(`/shops/${id}`),
-
-  getDetails: (id: string) =>
-    api.get<ApiResponse<ShopDetails>>(`/shops/${id}/details`),
-};
-
-// Order API
-export const orderApi = {
-  getPriceEstimate: (data: PriceEstimateRequest) =>
-    api.post<ApiResponse<PriceEstimateResponse>>('/orders/price-estimate', data),
-
-  create: (data: CreateOrderRequest) =>
-    api.post<ApiResponse<Order>>('/orders', data),
-
-  getById: (id: string) =>
-    api.get<ApiResponse<Order>>(`/orders/${id}`),
-
-  getByNumber: (orderNumber: string) =>
-    api.get<ApiResponse<Order>>(`/orders/number/${orderNumber}`),
-
-  getMyOrders: (page = 0, size = 10) =>
-    api.get<ApiResponse<PagedResponse<Order>>>(`/orders?page=${page}&size=${size}`),
-
-  updateStatus: (id: string, data: { status: string; notes?: string; rejectionReason?: string }) =>
-    api.put<ApiResponse<Order>>(`/orders/${id}/status`, data),
-
-  reorder: (id: string) =>
-    api.post<ApiResponse<Order>>(`/orders/${id}/reorder`),
-
-  deleteOrder: (id: number) =>
-    api.delete<ApiResponse<void>>(`/orders/${id}`),
-};
-
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const authData = localStorage.getItem('printhub-auth');
-    if (authData) {
-      const parsed = JSON.parse(authData);
-      return parsed.state?.accessToken || null;
-    }
-  } catch { /* ignore */ }
-  return localStorage.getItem('accessToken');
-}
-
-// File API
-export const fileApi = {
-  upload: async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/files/upload`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData,
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      throw new Error(json.message || `Upload failed (${response.status})`);
-    }
-    return json as ApiResponse<{ fileName: string; originalName: string }>;
-  },
-
-  getDownloadUrl: (fileName: string) => `${API_BASE_URL}/files/${fileName}`,
-};
-
-// Payment API
-export const paymentApi = {
-  submit: (data: { orderId: number; utr: string; screenshotPath?: string }) =>
-    api.post<ApiResponse<Payment>>('/payments/submit', data),
-  getUpiPay: (orderId: number) =>
-    api.get<ApiResponse<UpiPayResponse>>('/payments/upi-pay/' + orderId),
-};
-
-export interface UpiPayResponse {
-  orderId: number;
-  orderNumber: string;
-  amount: number;
-  upiId: string;
-  upiDeepLink: string;
-  merchantName: string;
-}
-
-// Admin API
-export const adminApi = {
-  getOrders: (page = 0, size = 20) =>
-    api.get<ApiResponse<PagedResponse<Order>>>(`/admin/orders?page=${page}&size=${size}`),
-
-  updateOrderStatus: (id: number, data: { status: string; notes?: string }) =>
-    api.put<ApiResponse<Order>>(`/admin/orders/${id}/status`, data),
-
-  getPendingPayments: () =>
-    api.get<ApiResponse<Payment[]>>('/admin/payments/pending'),
-
-  approvePayment: (id: number) =>
-    api.post<ApiResponse<Payment>>(`/admin/payments/${id}/approve`, {}),
-
-  rejectPayment: (id: number, reason?: string) =>
-    api.post<ApiResponse<Payment>>(`/admin/payments/${id}/reject${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, {}),
-
-  ping: () =>
-    api.get<ApiResponse<string>>('/admin/ping'),
-
-  deleteOrder: (id: number) =>
-    api.delete<ApiResponse<void>>(`/admin/orders/${id}`),
-};
-
-// Types
 export interface User {
   id: number;
   name: string;
@@ -505,12 +237,13 @@ export interface Payment {
   contactPhone?: string;
 }
 
-export interface PaymentOrderResponse {
+export interface UpiPayResponse {
   orderId: number;
-  razorpayOrderId: string;
+  orderNumber: string;
   amount: number;
-  currency: string;
-  keyId: string;
+  upiId: string;
+  upiDeepLink: string;
+  merchantName: string;
 }
 
 export interface Review {
@@ -524,3 +257,329 @@ export interface Review {
   shopResponse?: string;
   createdAt: string;
 }
+
+// ─── HTTP Client ─────────────────────────────────────────────────────────────
+
+class HttpClient {
+  private readonly client: AxiosInstance;
+
+  constructor() {
+    this.client = axios.create({
+      baseURL: API_BASE_URL,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    this.client.interceptors.request.use((config) => {
+      const token = this.getToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    this.client.interceptors.response.use(
+      (response) => response,
+      async (error: AxiosError) => {
+        if (error.response?.status === 401) {
+          this.clearToken();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  private getToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const authData = localStorage.getItem('printhub-auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed.state?.accessToken || null;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    return localStorage.getItem('accessToken');
+  }
+
+  private clearToken(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('printhub-auth');
+    document.cookie = 'printhub-auth-token=; path=/; max-age=0; SameSite=Lax';
+  }
+
+  async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.get<T>(url, config);
+    return response.data;
+  }
+
+  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.post<T>(url, data, config);
+    return response.data;
+  }
+
+  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.put<T>(url, data, config);
+    return response.data;
+  }
+
+  async patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.patch<T>(url, data, config);
+    return response.data;
+  }
+
+  async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.delete<T>(url, config);
+    return response.data;
+  }
+}
+
+const http = new HttpClient();
+
+// ─── Base API Service (Template Method Pattern) ─────────────────────────────
+
+abstract class BaseApiService {
+  protected abstract get basePath(): string;
+
+  protected getById<T>(id: string | number): Promise<ApiResponse<T>> {
+    return http.get<ApiResponse<T>>(`${this.basePath}/${id}`);
+  }
+
+  protected getAll<T>(params?: string): Promise<ApiResponse<T>> {
+    return http.get<ApiResponse<T>>(`${this.basePath}${params ? '?' + params : ''}`);
+  }
+
+  protected create<T, R = T>(data: T): Promise<ApiResponse<R>> {
+    return http.post<ApiResponse<R>>(this.basePath, data);
+  }
+
+  protected update<T>(id: string | number, data: Partial<T>): Promise<ApiResponse<T>> {
+    return http.put<ApiResponse<T>>(`${this.basePath}/${id}`, data);
+  }
+
+  protected remove(id: string | number): Promise<ApiResponse<void>> {
+    return http.delete<ApiResponse<void>>(`${this.basePath}/${id}`);
+  }
+}
+
+// ─── API Services ────────────────────────────────────────────────────────────
+
+class AuthApiService extends BaseApiService {
+  protected basePath = '/auth';
+
+  register(data: { name: string; email?: string; phone: string; password: string; referralCode?: string }) {
+    return this.create<typeof data, { accessToken: string; refreshToken: string; user: User }>(data);
+  }
+
+  login(data: { identifier: string; password: string }) {
+    return this.create<typeof data, { accessToken: string; refreshToken: string; user: User }>(
+      data
+    );
+  }
+
+  refreshToken(data: { refreshToken: string }) {
+    return http.post<ApiResponse<{ accessToken: string; refreshToken: string }>>('/auth/refresh', data);
+  }
+
+  logout(refreshToken: string) {
+    return http.post<ApiResponse<void>>('/auth/logout', { refreshToken });
+  }
+
+  forgotPassword(identifier: string) {
+    return http.post<ApiResponse<{ message: string; otp: string }>>('/auth/forgot-password', { identifier });
+  }
+
+  resetPassword(identifier: string, otp: string, newPassword: string) {
+    return http.post<ApiResponse<void>>('/auth/reset-password', { identifier, otp, newPassword });
+  }
+
+  sendOtp(identifier: string, purpose: string) {
+    return http.post<ApiResponse<{ message: string; otp: string }>>('/auth/otp/send', { identifier, purpose });
+  }
+
+  verifyOtp(identifier: string, otp: string, purpose: string) {
+    return http.post<ApiResponse<void>>('/auth/otp/verify', { identifier, otp, purpose });
+  }
+}
+
+class UserApiService extends BaseApiService {
+  protected basePath = '/users';
+
+  getMe() {
+    return http.get<ApiResponse<User>>(`${this.basePath}/me`);
+  }
+
+  updateProfile(data: { name?: string; email?: string }) {
+    return http.put<ApiResponse<User>>(`${this.basePath}/me`, data);
+  }
+
+  getAddresses() {
+    return http.get<ApiResponse<Address[]>>(`${this.basePath}/me/addresses`);
+  }
+
+  addAddress(data: Omit<Address, 'id' | 'createdAt'>) {
+    return http.post<ApiResponse<Address>>(`${this.basePath}/me/addresses`, data);
+  }
+
+  updateAddress(id: string, data: Partial<Address>) {
+    return http.put<ApiResponse<Address>>(`${this.basePath}/me/addresses/${id}`, data);
+  }
+
+  deleteAddress(id: string) {
+    return http.delete<ApiResponse<void>>(`${this.basePath}/me/addresses/${id}`);
+  }
+}
+
+class ShopApiService extends BaseApiService {
+  protected basePath = '/shops';
+
+  getAll(page = 0, size = 20) {
+    return http.get<ApiResponse<PagedResponse<Shop>>>(`${this.basePath}?page=${page}&size=${size}`);
+  }
+
+  getNearby(lat: number, lng: number, radius = 10, limit = 20) {
+    return http.get<ApiResponse<Shop[]>>(`${this.basePath}/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=${limit}`);
+  }
+
+  getById(id: string) {
+    return http.get<ApiResponse<Shop>>(`${this.basePath}/${id}`);
+  }
+
+  getDetails(id: string) {
+    return http.get<ApiResponse<ShopDetails>>(`${this.basePath}/${id}/details`);
+  }
+}
+
+class OrderApiService extends BaseApiService {
+  protected basePath = '/orders';
+
+  getPriceEstimate(data: PriceEstimateRequest) {
+    return http.post<ApiResponse<PriceEstimateResponse>>(`${this.basePath}/price-estimate`, data);
+  }
+
+  create(data: CreateOrderRequest) {
+    return http.post<ApiResponse<Order>>(this.basePath, data);
+  }
+
+  getById(id: string) {
+    return http.get<ApiResponse<Order>>(`${this.basePath}/${id}`);
+  }
+
+  getByNumber(orderNumber: string) {
+    return http.get<ApiResponse<Order>>(`${this.basePath}/number/${orderNumber}`);
+  }
+
+  getMyOrders(page = 0, size = 10) {
+    return http.get<ApiResponse<PagedResponse<Order>>>(`${this.basePath}?page=${page}&size=${size}`);
+  }
+
+  updateStatus(id: string, data: { status: string; notes?: string; rejectionReason?: string }) {
+    return http.put<ApiResponse<Order>>(`${this.basePath}/${id}/status`, data);
+  }
+
+  reorder(id: string) {
+    return http.post<ApiResponse<Order>>(`${this.basePath}/${id}/reorder`);
+  }
+
+  deleteOrder(id: number) {
+    return http.delete<ApiResponse<void>>(`${this.basePath}/${id}`);
+  }
+}
+
+class FileApiService extends BaseApiService {
+  protected basePath = '/files';
+
+  async upload(file: File): Promise<ApiResponse<{ fileName: string; originalName: string }>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/files/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(json.message || `Upload failed (${response.status})`);
+    }
+    return json as ApiResponse<{ fileName: string; originalName: string }>;
+  }
+
+  getDownloadUrl(fileName: string): string {
+    return `${API_BASE_URL}/files/download/${fileName}`;
+  }
+
+  private getAuthToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const authData = localStorage.getItem('printhub-auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed.state?.accessToken || null;
+      }
+    } catch {
+      // ignore
+    }
+    return localStorage.getItem('accessToken');
+  }
+}
+
+class PaymentApiService extends BaseApiService {
+  protected basePath = '/payments';
+
+  submit(data: { orderId: number; utr: string; screenshotPath?: string }) {
+    return http.post<ApiResponse<Payment>>(`${this.basePath}/submit`, data);
+  }
+
+  getUpiPay(orderId: number) {
+    return http.get<ApiResponse<UpiPayResponse>>(`${this.basePath}/upi-pay/${orderId}`);
+  }
+}
+
+class AdminApiService extends BaseApiService {
+  protected basePath = '/admin';
+
+  getOrders(page = 0, size = 20) {
+    return http.get<ApiResponse<PagedResponse<Order>>>(`${this.basePath}/orders?page=${page}&size=${size}`);
+  }
+
+  updateOrderStatus(id: number, data: { status: string; notes?: string }) {
+    return http.put<ApiResponse<Order>>(`${this.basePath}/orders/${id}/status`, data);
+  }
+
+  getPendingPayments() {
+    return http.get<ApiResponse<Payment[]>>(`${this.basePath}/payments/pending`);
+  }
+
+  approvePayment(id: number) {
+    return http.post<ApiResponse<Payment>>(`${this.basePath}/payments/${id}/approve`, {});
+  }
+
+  rejectPayment(id: number, reason?: string) {
+    const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+    return http.post<ApiResponse<Payment>>(`${this.basePath}/payments/${id}/reject${query}`, {});
+  }
+
+  ping() {
+    return http.get<ApiResponse<string>>(`${this.basePath}/ping`);
+  }
+
+  deleteOrder(id: number) {
+    return http.delete<ApiResponse<void>>(`${this.basePath}/orders/${id}`);
+  }
+}
+
+// ─── Singleton Exports ───────────────────────────────────────────────────────
+
+export const authApi = new AuthApiService();
+export const userApi = new UserApiService();
+export const shopApi = new ShopApiService();
+export const orderApi = new OrderApiService();
+export const fileApi = new FileApiService();
+export const paymentApi = new PaymentApiService();
+export const adminApi = new AdminApiService();

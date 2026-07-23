@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
 import { generateId, cn } from '@/lib/utils';
-import { useCartStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Upload, FileText, X, ArrowRight, Loader2, Eye } from 'lucide-react';
@@ -147,7 +147,7 @@ export default function UploadPage() {
         try {
           const res = await fileApi.upload(f.file);
           if (res.success && res.data) {
-            const fileUrl = `/api/v1/files/${res.data.fileName}`;
+            const fileUrl = `/api/v1/files/download/${res.data.fileName}`;
             addItem({
               id: f.id,
               fileName: f.name,

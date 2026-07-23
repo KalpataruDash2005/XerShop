@@ -306,9 +306,21 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public OrderDTO getOrderByNumber(String orderNumber) {
+    public OrderDTO getOrderByNumber(Long userId, String orderNumber) {
         Order order = orderRepository.findByOrderNumberAndDeletedAtIsNull(orderNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "order number", orderNumber));
+
+        User requester = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        boolean isUser = order.getUser().getId().equals(userId);
+        boolean isOwner = order.getShop().getOwner().getId().equals(userId);
+        boolean isAdmin = requester.getRole() == UserRole.ADMIN;
+
+        if (!isUser && !isOwner && !isAdmin) {
+            throw new ForbiddenException("Access denied");
+        }
+
         return enrichOrderDTO(order);
     }
 

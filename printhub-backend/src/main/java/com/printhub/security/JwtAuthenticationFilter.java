@@ -1,10 +1,16 @@
 package com.printhub.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.printhub.dto.common.ApiResponse;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SecurityException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -40,6 +46,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
 
+        if (jwt.isBlank()) {
+            writeError(response, "Token is empty");
+            return;
+        }
+
         try {
             userIdentifier = jwtService.extractUsername(jwt);
 
@@ -56,11 +67,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+
+            filterChain.doFilter(request, response);
+        } catch (ExpiredJwtException e) {
+            writeError(response, "Token has expired. Please refresh your token.");
+        } catch (SecurityException | MalformedJwtException e) {
+            writeError(response, "Invalid token signature or format.");
         } catch (Exception e) {
             logger.error("Cannot set user authentication: " + e.getMessage());
-            // Continue without authentication - SecurityContextHolder remains empty
+            writeError(response, "Authentication failed: " + e.getMessage());
         }
+    }
 
-        filterChain.doFilter(request, response);
+    private void writeError(HttpServletResponse response, String message) throws IOException {
+        response.setContentType("application/json");
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        ApiResponse<Void> body = ApiResponse.error(message);
+        new ObjectMapper().writeValue(response.getOutputStream(), body);
     }
 }

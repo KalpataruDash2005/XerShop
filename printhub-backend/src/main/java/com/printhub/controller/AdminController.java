@@ -8,12 +8,10 @@ import com.printhub.dto.order.OrderDTOs.UpdateOrderStatusRequest;
 import com.printhub.dto.payment.PaymentDTOs.PaymentDTO;
 import com.printhub.service.AdminService;
 import com.printhub.service.OrderService;
-import com.printhub.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -25,14 +23,17 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@RequiredArgsConstructor
 @Tag(name = "Admin", description = "Admin management APIs")
 @SecurityRequirement(name = "Bearer Authentication")
-public class AdminController {
+public class AdminController extends BaseController {
 
     private final AdminService adminService;
     private final OrderService orderService;
-    private final JwtUtil jwtUtil;
+
+    public AdminController(AdminService adminService, OrderService orderService) {
+        this.adminService = adminService;
+        this.orderService = orderService;
+    }
 
     @GetMapping("/orders")
     @Operation(summary = "Get all orders on the platform")
@@ -56,7 +57,7 @@ public class AdminController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id,
             @Valid @RequestBody UpdateOrderStatusRequest request) {
-        Long requesterId = jwtUtil.extractUserId(userDetails);
+        Long requesterId = getCurrentUserId(userDetails);
         OrderDTO orderDTO = orderService.updateOrderStatus(id, requesterId, request);
         return ResponseEntity.ok(ApiResponse.success("Order status updated", orderDTO));
     }

@@ -2,11 +2,16 @@ package com.printhub.controller;
 
 import com.printhub.dto.common.ApiResponse;
 import com.printhub.service.FileStorageService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,12 +20,16 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
+@Tag(name = "Files", description = "File upload/download APIs")
 public class FileController {
 
     private final FileStorageService fileStorageService;
 
     @PostMapping("/upload")
-    public ResponseEntity<ApiResponse<Map<String, String>>> uploadFile(@RequestParam("file") MultipartFile file) {
+    @Operation(summary = "Upload a file", security = @SecurityRequirement(name = "Bearer Authentication"))
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadFile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam("file") MultipartFile file) {
         String storedName = fileStorageService.storeFile(file);
         String originalName = file.getOriginalFilename();
         return ResponseEntity.ok(ApiResponse.success(
@@ -29,7 +38,8 @@ public class FileController {
         ));
     }
 
-    @GetMapping("/{fileName}")
+    @GetMapping("/download/{fileName}")
+    @Operation(summary = "Download a file by stored name")
     public ResponseEntity<Resource> downloadFile(@PathVariable String fileName) {
         Resource resource = fileStorageService.loadFileAsResource(fileName);
         String contentType = determineContentType(fileName);

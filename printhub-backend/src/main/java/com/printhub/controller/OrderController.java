@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -16,17 +15,17 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import com.printhub.util.JwtUtil;
-
 @RestController
 @RequestMapping("/api/v1/orders")
-@RequiredArgsConstructor
 @Tag(name = "Orders", description = "Order management APIs")
 @SecurityRequirement(name = "Bearer Authentication")
-public class OrderController {
+public class OrderController extends BaseController {
 
     private final OrderService orderService;
-    private final JwtUtil jwtUtil;
+
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
+    }
 
     @PostMapping("/price-estimate")
     @Operation(summary = "Calculate price estimate")
@@ -40,7 +39,7 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderDTO>> createOrder(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CreateOrderRequest request) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = getCurrentUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Order created", orderService.createOrder(userId, request)));
     }
 
@@ -49,14 +48,17 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderDTO>> getOrderById(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = getCurrentUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success(orderService.getOrderById(userId, id)));
     }
 
     @GetMapping("/number/{orderNumber}")
-    @Operation(summary = "Get order by order number")
-    public ResponseEntity<ApiResponse<OrderDTO>> getOrderByNumber(@PathVariable String orderNumber) {
-        return ResponseEntity.ok(ApiResponse.success(orderService.getOrderByNumber(orderNumber)));
+    @Operation(summary = "Get order by order number (authenticated)")
+    public ResponseEntity<ApiResponse<OrderDTO>> getOrderByNumber(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable String orderNumber) {
+        Long userId = getCurrentUserId(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(orderService.getOrderByNumber(userId, orderNumber)));
     }
 
     @GetMapping
@@ -64,7 +66,7 @@ public class OrderController {
     public ResponseEntity<ApiResponse<PagedResponse<OrderDTO>>> getUserOrders(
             @AuthenticationPrincipal UserDetails userDetails,
             Pageable pageable) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = getCurrentUserId(userDetails);
         Page<OrderDTO> orders = orderService.getUserOrders(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(PagedResponse.of(orders)));
     }
@@ -75,7 +77,7 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long shopId,
             Pageable pageable) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = getCurrentUserId(userDetails);
         Page<OrderDTO> orders = orderService.getShopOrders(shopId, userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(PagedResponse.of(orders)));
     }
@@ -86,7 +88,7 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id,
             @Valid @RequestBody UpdateOrderStatusRequest request) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = getCurrentUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Order status updated", orderService.updateOrderStatus(id, userId, request)));
     }
 
@@ -95,7 +97,7 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderDTO>> reorder(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = getCurrentUserId(userDetails);
         return ResponseEntity.ok(ApiResponse.success("Order recreated", orderService.reorder(userId, id)));
     }
 
@@ -113,12 +115,9 @@ public class OrderController {
     public ResponseEntity<ApiResponse<Void>> deleteOrder(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
-        Long userId = getUserIdFromDetails(userDetails);
+        Long userId = getCurrentUserId(userDetails);
         orderService.deleteOrder(id, userId);
         return ResponseEntity.ok(ApiResponse.<Void>success("Order deleted", null));
     }
 
-    private Long getUserIdFromDetails(UserDetails userDetails) {
-        return jwtUtil.extractUserId(userDetails);
-    }
 }

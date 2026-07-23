@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -23,9 +24,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.printhub.dto.common.ApiResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -42,20 +47,31 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint(new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED))
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setContentType("application/json");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    ApiResponse<Void> body = ApiResponse.error("Authentication required. Please provide a valid token.");
+                    new ObjectMapper().writeValue(response.getOutputStream(), body);
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setContentType("application/json");
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    ApiResponse<Void> body = ApiResponse.error("Access denied. Insufficient permissions.");
+                    new ObjectMapper().writeValue(response.getOutputStream(), body);
+                })
             )
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
+                // Public endpoints — uses AntPathMatcher syntax (* for segment, ** for multi-segment)
                 .requestMatchers(
                     "/api/v1/auth/**",
                     "/api/v1/shops/nearby",
-                    "/api/v1/shops/{id}",
-                    "/api/v1/shops/{id}/details",
+                    "/api/v1/shops/*",
+                    "/api/v1/shops/*/details",
                     "/api/v1/shops",
                     "/api/v1/categories/**",
                     "/api/v1/cms/**",
                     "/api/v1/payments/webhook",
-                    "/api/v1/files/**",
+                    "/api/v1/files/download/*",
                     "/actuator/health",
                     "/swagger-ui/**",
                     "/swagger-ui.html",
@@ -64,6 +80,8 @@ public class SecurityConfig {
                     "/webjars/**",
                     "/h2-console/**"
                 ).permitAll()
+                // File upload requires authentication
+                .requestMatchers(HttpMethod.POST, "/api/v1/files/upload").authenticated()
                 // Authenticated user endpoints
                 .requestMatchers(HttpMethod.GET, "/api/v1/shops/my").authenticated()
                 // Admin endpoints
