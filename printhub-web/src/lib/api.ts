@@ -341,30 +341,10 @@ class HttpClient {
 
 const http = new HttpClient();
 
-// ─── Base API Service (Template Method Pattern) ─────────────────────────────
+// ─── Base API Service ────────────────────────────────────────────────────────
 
 abstract class BaseApiService {
   protected abstract get basePath(): string;
-
-  protected getById<T>(id: string | number): Promise<ApiResponse<T>> {
-    return http.get<ApiResponse<T>>(`${this.basePath}/${id}`);
-  }
-
-  protected getAll<T>(params?: string): Promise<ApiResponse<T>> {
-    return http.get<ApiResponse<T>>(`${this.basePath}${params ? '?' + params : ''}`);
-  }
-
-  protected create<T, R = T>(data: T): Promise<ApiResponse<R>> {
-    return http.post<ApiResponse<R>>(this.basePath, data);
-  }
-
-  protected update<T>(id: string | number, data: Partial<T>): Promise<ApiResponse<T>> {
-    return http.put<ApiResponse<T>>(`${this.basePath}/${id}`, data);
-  }
-
-  protected remove(id: string | number): Promise<ApiResponse<void>> {
-    return http.delete<ApiResponse<void>>(`${this.basePath}/${id}`);
-  }
 }
 
 // ─── API Services ────────────────────────────────────────────────────────────
@@ -373,13 +353,11 @@ class AuthApiService extends BaseApiService {
   protected basePath = '/auth';
 
   register(data: { name: string; email?: string; phone: string; password: string; referralCode?: string }) {
-    return this.create<typeof data, { accessToken: string; refreshToken: string; user: User }>(data);
+    return http.post<ApiResponse<{ accessToken: string; refreshToken: string; user: User }>>('/auth/register', data);
   }
 
   login(data: { identifier: string; password: string }) {
-    return this.create<typeof data, { accessToken: string; refreshToken: string; user: User }>(
-      data
-    );
+    return http.post<ApiResponse<{ accessToken: string; refreshToken: string; user: User }>>('/auth/login', data);
   }
 
   refreshToken(data: { refreshToken: string }) {
